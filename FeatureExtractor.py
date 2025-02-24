@@ -14,6 +14,9 @@ import csv
 import numpy as np
 print("Importing Scapy Library")
 from scapy.all import *
+from scapy.layers.inet import IP, TCP, UDP, ICMP
+from scapy.layers.inet6 import IPv6
+from scapy.layers.l2 import ARP
 import os.path
 import platform
 import subprocess

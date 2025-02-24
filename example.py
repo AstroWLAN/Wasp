@@ -23,7 +23,7 @@ with zipfile.ZipFile("mirai.zip","r") as zip_ref:
 
 # File location
 path = "mirai.pcap" #the pcap, pcapng, or tsv file to process.
-packet_limit = np.Inf #the number of packets to process
+packet_limit = np.inf #the number of packets to process
 
 # KitNET params:
 maxAE = 10 #maximum size for any autoencoder in the ensemble layer
