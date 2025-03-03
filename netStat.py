@@ -1,30 +1,6 @@
 import numpy as np
 import AfterImage as af
 
-#
-# MIT License
-#
-# Copyright (c) 2018 Yisroel mirsky
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
-
 class netStat:
     #Datastructure for efficent network stat queries
     # HostLimit: no more that this many Host identifiers will be tracked
@@ -49,22 +25,7 @@ class netStat:
         self.HT_Hp = af.incStatDB(limit=self.SessionLimit)#Source Host BW Stats
 
 
-    def findDirection(self,IPtype,srcIP,dstIP,eth_src,eth_dst): #cpp: this is all given to you in the direction string of the instance (NO NEED FOR THIS FUNCTION)
-        if IPtype==0: #is IPv4
-            lstP = srcIP.rfind('.')
-            src_subnet = srcIP[0:lstP:]
-            lstP = dstIP.rfind('.')
-            dst_subnet = dstIP[0:lstP:]
-        elif IPtype==1: #is IPv6
-            src_subnet = srcIP[0:round(len(srcIP)/2):]
-            dst_subnet = dstIP[0:round(len(dstIP)/2):]
-        else: #no Network layer, use MACs
-            src_subnet = eth_src
-            dst_subnet = eth_dst
-
-        return src_subnet, dst_subnet
-
-    def updateGetStats(self, IPtype, srcMAC,dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp):
+    def updateGetStats(self, srcMAC, dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp):
         # Host BW: Stats on the srcIP's general Sender Statistics
         # Hstat = np.zeros((3*len(self.Lambdas,)))
         # for i in range(len(self.Lambdas)):

@@ -1,0 +1,6 @@
+# Ignores the following files
+__pycache__/
+.idea/
+*.py[cod]
+*$py.class
+*.pcap

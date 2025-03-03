@@ -1,101 +1,105 @@
-# MODULES
+# MODULES 
 import os
-import netStat as ns
 import numpy as np
+import netStat as ns
 from scapy.all import *
 from scapy.layers.l2 import ARP
-from scapy.layers.inet6 import IPv6
 from scapy.layers.inet import IP, TCP, UDP, ICMP
+from scapy.layers.inet6 import IPv6
 
-#Extracts Kitsune features from given pcap file one packet at a time using "get_next_vector()"
-# Uses scapy to parse pcap files and extract network features
+# Processes the traffic and computes the features one packet at a time
 class FE:
     def __init__(self, file_path, limit=np.inf):
         self.path = file_path
-        self.limit = limit
-        self.curPacketIndx = 0
-        self.scapyin = None
-        self.__prep__()
-        
-        # Initialize feature extractor
+        self.packets_limit = limit
+        self.current_pkt_index = 0
+        self.packets = None
+        self.load_traffic()
+        # AfterImage settings
         maxHost = 100000000000
         maxSess = 100000000000
         self.nstat = ns.netStat(np.nan, maxHost, maxSess)
 
-    def __prep__(self):
+    # Loads the packets from a .pcap or .pcapng file  
+    def load_traffic(self):
+        # Loads the file
         if not os.path.isfile(self.path):
-            raise FileNotFoundError(f"File: {self.path} does not exist")
+            raise FileNotFoundError(f"\033[91mFile [{self.path}] not found 🔥\033[0m")
         
-        if not self.path.endswith('.pcap'):
-            raise ValueError(f"File: {self.path} is not a valid pcap file")
-            
-        print("Reading PCAP file via Scapy...")
-        self.scapyin = rdpcap(self.path)
-        self.limit = min(len(self.scapyin), self.limit)
-        print(f"Loaded {len(self.scapyin)} Packets.")
+        # Loads the packets
+        if self.path.endswith(('.pcap', '.pcapng')):
+            print("\033[90mLoading the traffic...\033[0m")
+            self.packets = rdpcap(self.path)
+            self.packets_limit = min(self.packets_limit, len(self.packets))
+            print(f"\033[92mSuccess!\n\033[90mLoaded [{len(self.packets)}] packets\033[0m")
+        else:
+            raise ValueError(f"\033[91mFile: {self.path} is not a pcap or pcapng file 🔥\033[0m")
 
-    def get_next_vector(self):
-        if self.curPacketIndx == self.limit:
+    def compute_features(self):
+        # Checks if the packet index is out of bounds
+        if self.current_pkt_index >= self.packets_limit:
             return []
 
-        packet = self.scapyin[self.curPacketIndx]
-        IPtype = np.nan
+        packet = self.packets[self.current_pkt_index]
         timestamp = packet.time
         framelen = len(packet)
         
-        # Extract IP information
-        if packet.haslayer(IP):  # IPv4
+        # IPv4
+        if packet.haslayer(IP): 
             srcIP = packet[IP].src
             dstIP = packet[IP].dst
-            IPtype = 0
-        elif packet.haslayer(IPv6):  # IPv6
+        # IPv6
+        elif packet.haslayer(IPv6):
             srcIP = packet[IPv6].src
             dstIP = packet[IPv6].dst
-            IPtype = 1
+        # IP layer unknown
         else:
             srcIP = ''
             dstIP = ''
 
-        # Extract protocol information
+        # TCP
         if packet.haslayer(TCP):
             srcproto = str(packet[TCP].sport)
             dstproto = str(packet[TCP].dport)
+        # UDP
         elif packet.haslayer(UDP):
             srcproto = str(packet[UDP].sport)
             dstproto = str(packet[UDP].dport)
+        # Transport layer unknown
         else:
             srcproto = ''
             dstproto = ''
 
+        # MAC addresses
         srcMAC = packet.src
         dstMAC = packet.dst
-
-        # Handle special protocols
-        if srcproto == '':  # L2/L1 level protocol
-            if packet.haslayer(ARP):  # ARP
+        # ARP
+        if srcproto == '':
+            if packet.haslayer(ARP):
                 srcproto = 'arp'
                 dstproto = 'arp'
                 srcIP = packet[ARP].psrc
                 dstIP = packet[ARP].pdst
-                IPtype = 0
-            elif packet.haslayer(ICMP):  # ICMP
+            # ICMP
+            elif packet.haslayer(ICMP):
                 srcproto = 'icmp'
                 dstproto = 'icmp'
-                IPtype = 0
-            elif srcIP + srcproto + dstIP + dstproto == '':  # other protocol
+            # Other protocol
+            elif srcIP + srcproto + dstIP + dstproto == '':
                 srcIP = packet.src
                 dstIP = packet.dst
 
-        self.curPacketIndx += 1
+        # Increments the packet index
+        self.current_pkt_index += 1
 
         try:
-            return self.nstat.updateGetStats(
-                IPtype, srcMAC, dstMAC, srcIP, srcproto, 
-                dstIP, dstproto, int(framelen), float(timestamp)
-            )
+            # Computes the features
+            return self.nstat.updateGetStats(srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto, int(framelen), float(timestamp))
         except Exception as e:
-            print(f"Error processing packet: {e}")
+            # Prints the occurred error
+            print(f"\033[91m{e}\033[0m")  
             return []
 
+    # Returns the number of features present in the feature vector
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())

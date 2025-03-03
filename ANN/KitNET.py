@@ -1,6 +1,6 @@
 import numpy as np
-import KitNET.dA as AE
-import KitNET.corClust as CC
+import ANN.dA as AE
+import ANN.corClust as CC
 
 # This class represents a KitNET machine learner.
 # KitNET is a lightweight online anomaly detection algorithm based on an ensemble of autoencoders.
@@ -31,16 +31,17 @@ class KitNET:
         self.lr = learning_rate
         self.hr = hidden_ratio
         self.n = n
+        self.threshold = -1
 
         # Variables
         self.n_trained = 0 # the number of training instances so far
         self.n_executed = 0 # the number of executed instances so far
         self.v = feature_map
         if self.v is None:
-            print("Feature-Mapper: train-mode, Anomaly-Detector: off-mode")
+            print("\033[90mFM under training\033[0m")
         else:
             self.__createAD__()
-            print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
+            print("\033[90mAD under training\033[0m")
         self.FM = CC.corClust(self.n) #incremental feature cluatering for the feature mapping process
         self.ensembleLayer = []
         self.outputLayer = None
@@ -64,8 +65,7 @@ class KitNET:
             if self.n_trained == self.FM_grace_period: #If the feature mapping should be instantiated
                 self.v = self.FM.cluster(self.m)
                 self.__createAD__()
-                print("The Feature-Mapper found a mapping: "+str(self.n)+" features to "+str(len(self.v))+" autoencoders.")
-                print("Feature-Mapper: execute-mode, Anomaly-Detector: train-mode")
+                print("\033[90mAD under training\033[0m")
         else: #train
             ## Ensemble Layer
             S_l1 = np.zeros(len(self.ensembleLayer))
@@ -74,15 +74,23 @@ class KitNET:
                 xi = x[self.v[a]]
                 S_l1[a] = self.ensembleLayer[a].train(xi)
             ## OutputLayer
-            self.outputLayer.train(S_l1)
+            score = self.outputLayer.train(S_l1)
+            
+            # Update threshold during AD training period
+            if self.n_trained > self.FM_grace_period and self.n_trained <= self.FM_grace_period + self.AD_grace_period:
+                if score > self.threshold:
+                    old_threshold = self.threshold
+                    self.threshold = score
+                    print("\033[38;5;39mThreshold updated\033[0m\n\033[90m" + f"{old_threshold:.4f} -→ {self.threshold:.4f}\033[0m")
+            
             if self.n_trained == self.AD_grace_period+self.FM_grace_period:
-                print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
+                print("\033[90mKitNET switched to detection mode\033[0m")
         self.n_trained += 1
 
     #force execute KitNET on x
     def execute(self,x):
         if self.v is None:
-            raise RuntimeError('KitNET Cannot execute x, because a feature mapping has not yet been learned or provided. Try running process(x) instead.')
+            raise RuntimeError('\033[91mKitNET cannot analyze the features because a mapping has not yet been learned or provided 🔥\n\033[90mProvide a mapping or train the FM first\033[0m')
         else:
             self.n_executed += 1
             ## Ensemble Layer
@@ -103,26 +111,3 @@ class KitNET:
         # construct output layer
         params = AE.dA_params(len(self.v), n_hidden=0, lr=self.lr, corruption_level=0, gracePeriod=0, hiddenRatio=self.hr)
         self.outputLayer = AE.dA(params)
-
-# Copyright (c) 2017 Yisroel Mirsky
-#
-# MIT License
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
