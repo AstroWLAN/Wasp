@@ -2,11 +2,16 @@
 import time
 import zipfile
 import numpy as np
+import pandas as pd
+import os
 from Kitsune import Kitsune
 from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
 
 # PARAMETERS
-path = "mirai.pcap"
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+path = os.path.join(script_dir, "mirai_packets.pcap")
+path_labels = os.path.join(script_dir, "mirai_true_labels.csv")
 # Limit to the number of packets to process
 packet_limit = np.inf
 # KitNET settings
@@ -20,6 +25,11 @@ AD_grace = 50000
 RMSEs = []
 # Packet index
 current_packet = 0
+# Labels 
+labels_dataframe = pd.read_csv(path_labels, header=None)
+true_labels = labels_dataframe.iloc[:, 0].values 
+# Predicted labels
+predicted_labels = []
 # Styles the TimeElapsedColumn from the rich.progress module
 class WhiteTimeElapsedColumn(TimeElapsedColumn):
     def render(self, task):
@@ -34,15 +44,21 @@ custom_columns = [
     TextColumn("[white]{task.percentage:>3.0f}%"),
 ]
 
+# Saves the predicted labels in a CSV file for further processing
+def save_predictions(predicted_labels, path):
+    pcap_filename = os.path.basename(path)
+    pcap_name_without_ext = pcap_filename.replace('.pcap', '')
+    desktop_path = os.path.expanduser("~/Desktop")
+    csv_filename = f"Kitsune_predicted_{pcap_name_without_ext}.csv"
+    csv_path = os.path.join(desktop_path, csv_filename)
+    pd.DataFrame(predicted_labels, columns=['predicted_label']).to_csv(csv_path, index=False)
+    print(f"\033[90mPredicted labels saved to [{csv_path}]\033[0m")
+
 # Builds Kitsune
 def run_Kitsune():
-    global current_packet
-    # Unzipping the mirai.zip file
-    with zipfile.ZipFile("Dataset/mirai.zip", "r") as zip_ref:
-        print("\033[90mUnzipping the sample capture...\033[0m")
-        zip_ref.extractall()
+    global current_packet, true_labels, predicted_labels, RMSEs
     kitsune = Kitsune(path, packet_limit, max_AutoEncoders, FM_grace, AD_grace)
-    print("\033[90mRunning Kitsune...\033[0m")
+    print("\033[90mRunning Kitsune\033[0m")
     start = time.time()
     # Processes the packets and visualizes the progress bars
     with Progress(*custom_columns) as progress:
@@ -84,8 +100,19 @@ def run_Kitsune():
             else:
                 detection_progress = current_packet - FM_grace - AD_grace
                 progress.update(DE_task, completed=detection_progress)
+                
+                # Predicts the nature of the packets after the training phases
+                if rmse >= kitsune.AnomDetector.threshold:
+                    predicted_labels.append(1)
+                else:
+                    predicted_labels.append(0)  
+                    
     stop = time.time()
     print(f"\033[92mSuccess!\n\033[90mElapsed time: {stop - start:.2f} seconds\033[0m")
+    # Sanitizes the label vectors
+    true_labels = true_labels[FM_grace + AD_grace:]
+    print(f"\033[90mKitsune has predicted {len(predicted_labels)} / {len(true_labels)} labels\033[0m")
+    save_predictions(predicted_labels, path)
 
 if __name__ == "__main__":
     print("\n\033[38;5;214mKitsune 🦊\033[0m")

@@ -28,7 +28,7 @@ class FE:
         
         # Loads the packets
         if self.path.endswith(('.pcap', '.pcapng')):
-            print("\033[90mLoading the traffic...\033[0m")
+            print("\033[90mLoading the traffic\033[0m")
             self.packets = rdpcap(self.path)
             self.packets_limit = min(self.packets_limit, len(self.packets))
             print(f"\033[92mSuccess!\n\033[90mLoaded [{len(self.packets)}] packets\033[0m")

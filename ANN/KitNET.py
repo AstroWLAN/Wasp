@@ -38,10 +38,10 @@ class KitNET:
         self.n_executed = 0 # the number of executed instances so far
         self.v = feature_map
         if self.v is None:
-            print("\033[90mFM under training\033[0m")
+            print("\033[97mFM under training\033[0m")
         else:
             self.__createAD__()
-            print("\033[90mAD under training\033[0m")
+            print("\033[97mAD under training\033[0m")
         self.FM = CC.corClust(self.n) #incremental feature cluatering for the feature mapping process
         self.ensembleLayer = []
         self.outputLayer = None
@@ -65,7 +65,7 @@ class KitNET:
             if self.n_trained == self.FM_grace_period: #If the feature mapping should be instantiated
                 self.v = self.FM.cluster(self.m)
                 self.__createAD__()
-                print("\033[90mAD under training\033[0m")
+                print("\033[97mAD under training\033[0m")
         else: #train
             ## Ensemble Layer
             S_l1 = np.zeros(len(self.ensembleLayer))
@@ -81,10 +81,10 @@ class KitNET:
                 if score > self.threshold:
                     old_threshold = self.threshold
                     self.threshold = score
-                    print("\033[38;5;39mThreshold updated\033[0m\n\033[90m" + f"{old_threshold:.4f} -→ {self.threshold:.4f}\033[0m")
+                    print("\033[97mThreshold updated\033[0m\n\033[90m" + f"{old_threshold:.4f} -→ {self.threshold:.4f}\033[0m")
             
             if self.n_trained == self.AD_grace_period+self.FM_grace_period:
-                print("\033[90mKitNET switched to detection mode\033[0m")
+                print("\033[97mKitNET switched to detection mode\033[0m")
         self.n_trained += 1
 
     #force execute KitNET on x
