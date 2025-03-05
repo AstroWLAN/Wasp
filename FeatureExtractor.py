@@ -35,10 +35,11 @@ class FE:
         else:
             raise ValueError(f"\033[91mFile: {self.path} is not a pcap or pcapng file 🔥\033[0m")
 
+    # Computes the feature vector for the current packet
     def compute_features(self):
         # Checks if the packet index is out of bounds
         if self.current_pkt_index >= self.packets_limit:
-            return []
+            return [], None
 
         packet = self.packets[self.current_pkt_index]
         timestamp = packet.time
@@ -84,22 +85,29 @@ class FE:
             elif packet.haslayer(ICMP):
                 srcproto = 'icmp'
                 dstproto = 'icmp'
-            # Other protocol
+            # Other protocols
             elif srcIP + srcproto + dstIP + dstproto == '':
                 srcIP = packet.src
                 dstIP = packet.dst
+
+        # Computes the flow ID
+        flowID = self.compute_flowID(srcIP, dstIP, srcproto, dstproto)
 
         # Increments the packet index
         self.current_pkt_index += 1
 
         try:
             # Computes the features
-            return self.nstat.updateGetStats(srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto, int(framelen), float(timestamp))
+            return self.nstat.updateGetStats(srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto, int(framelen), float(timestamp)), flowID
         except Exception as e:
             # Prints the occurred error
             print(f"\033[91m{e}\033[0m")  
-            return []
+            return [], None
 
     # Returns the number of features present in the feature vector
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
+    
+    # Computes the flow ID for the current packet
+    def compute_flowID(self, srcIP, dstIP, srcproto, dstproto):
+        return f"{srcIP}:{srcproto}_{dstIP}:{dstproto}"

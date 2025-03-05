@@ -21,8 +21,6 @@ max_AutoEncoders = 10
 # Grace period is the sum of the packets used to train the feature mapping [ FM ] and the anomaly detector [ AD ]
 FM_grace = 5000
 AD_grace = 50000
-# Collected RMSEs
-RMSEs = []
 # Packet index
 current_packet = 0
 # Labels 
@@ -51,12 +49,13 @@ def save_predictions(predicted_labels, path):
     desktop_path = os.path.expanduser("~/Desktop")
     csv_filename = f"Kitsune_predicted_{pcap_name_without_ext}.csv"
     csv_path = os.path.join(desktop_path, csv_filename)
-    pd.DataFrame(predicted_labels, columns=['predicted_label']).to_csv(csv_path, index=False)
+    # Creates a dataframe with two columns : 'predictions' and 'flowID'
+    pd.DataFrame(predicted_labels, columns=['predictions', 'flowID']).to_csv(csv_path, index=False)
     print(f"\033[90mPredicted labels saved to [{csv_path}]\033[0m")
 
 # Builds Kitsune
 def run_Kitsune():
-    global current_packet, true_labels, predicted_labels, RMSEs
+    global current_packet, true_labels, predicted_labels
     kitsune = Kitsune(path, packet_limit, max_AutoEncoders, FM_grace, AD_grace)
     print("\033[90mRunning Kitsune\033[0m")
     start = time.time()
@@ -81,11 +80,10 @@ def run_Kitsune():
         while True:
             current_packet += 1
             # Starts the analysis of the following packet
-            rmse = kitsune.process_packet()
-            if rmse == -1:
+            rmse, flowID = kitsune.process_packet()
+            if rmse == -1 and flowID is None:
+                # Non-valid RMSE...
                 break
-            RMSEs.append(rmse)
-                
             # Updates the progress bar 
             if current_packet <= FM_grace:
                 progress.update(FM_task, completed=current_packet)
@@ -100,12 +98,12 @@ def run_Kitsune():
             else:
                 detection_progress = current_packet - FM_grace - AD_grace
                 progress.update(DE_task, completed=detection_progress)
-                
                 # Predicts the nature of the packets after the training phases
                 if rmse >= kitsune.AnomDetector.threshold:
-                    predicted_labels.append(1)
+                    # Stores the prediction and the flowID as a tuple
+                    predicted_labels.append((1, flowID))
                 else:
-                    predicted_labels.append(0)  
+                    predicted_labels.append((0, flowID))  
                     
     stop = time.time()
     print(f"\033[92mSuccess!\n\033[90mElapsed time: {stop - start:.2f} seconds\033[0m")
