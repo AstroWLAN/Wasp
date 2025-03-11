@@ -57,8 +57,8 @@ def save_predictions(predicted_labels, path):
     pd.DataFrame(predicted_labels, columns=['predictions', 'flowID']).to_csv(csv_path, index=False)
     print(f"\033[90mPredicted labels saved to [{csv_path}]\033[0m")
 
-# Loads the predicted labels from a CSV file
-def load_sampling_predictions(true_labels):
+# Loads the predictions from a CSV file 
+def load_predictions(true_labels, wasps = False):
     # Retrieves the CSV file containing the predicted labels
     default_path = os.path.expanduser("~/Desktop/Kitsune_predicted_mirai_packets.csv")
     csv_path = input(f"\033[97mEnter predictions CSV \033[90m[ default at {default_path} ]\033[97m : \033[0m")
@@ -67,17 +67,22 @@ def load_sampling_predictions(true_labels):
         csv_path = default_path
     # Verifies that the files exist and that are valid CSVs
     if not os.path.exists(csv_path):
-        print("\033[91mThe provided file does not exist 🔥\033[0m\n\033[90mProvide a valid file\n\033[0m")
+        print("\033[91mThis file does not exist 🔥\033[0m\n\033[90mProvide a valid file\n\033[0m")
         return None
     try:
         # Loads the predictions and the true labels from the CSV files
         predictions_df = pd.read_csv(csv_path)
         # Checks if 'predictions' column exists
-        if 'predictions' not in predictions_df.columns:
-            print("\033[91mThe provided CSV file does not contain valid predictions 🔥\n\033[90mProvide the required information\033[0m")
+        if 'predictions' not in predictions_df.columns or 'flowID' not in predictions_df.columns:
+            print("\033[91mThe provided CSV file does not contain valid predictions or flowIDs 🔥\033[90mProvide the required information\033[0m")
             return None
         predictions = np.array(predictions_df['predictions'])
-        print(f"\033[90mLoaded {len(predictions)} predictions and {len(true_labels)} true labels\033[0m")
+        if wasps:
+            # Retrieves the flowIDs from the CSV file
+            flowIDs = np.array(predictions_df['flowID'])
+            print(f"\033[90mLoaded {len(predictions)} predictions and {len(flowIDs)} flowIDs for {len(true_labels)} true labels\033[0m")
+            return predictions, flowIDs
+        print(f"\033[90mLoaded {len(predictions)} predictions for {len(true_labels)} true labels\033[0m")
         return predictions
     except pd.errors.EmptyDataError:
         print("\033[91mThe CSV file is empty 🔥\033[0m\n")
@@ -88,45 +93,11 @@ def load_sampling_predictions(true_labels):
     except Exception as e:
         print(f"\033[91mGeneric Error 🔥\033[0m\n\033[90m{str(e)}\033[0m\n")
         return None
-
-# Loads the predicted labels with the relative FlowIDs from a CSV file
-def load_wasps_predictions(true_labels):
-    # Retrieves the CSV file containing the predicted labels
-    default_path = os.path.expanduser("~/Desktop/Kitsune_predicted_mirai_packets.csv")
-    csv_path = input(f"\033[97mEnter predictions CSV \033[90m[ default at {default_path} ]\033[97m : \033[0m")
-    # Uses the default path if user didn't provide one [ user pressed ENTER ]
-    if not csv_path.strip():
-        csv_path = default_path
-    # Verifies that the files exist and that are valid CSVs
-    if not os.path.exists(csv_path):
-        print("\033[91mThe provided file does not exist 🔥\n\033[0m\n\033[90mProvide a valid file\n\033[0m")
-        return None
-    try:
-        # Loads the predictions and the true labels from the CSV files
-        predictions_df = pd.read_csv(csv_path)
-        # Checks if 'predictions' column exists
-        if 'predictions' not in predictions_df.columns or 'flowID' not in predictions_df.columns:
-            print("\033[91mThe provided CSV file does not contain valid predictions or flowIDs 🔥\033[90mProvide the required information\033[0m")
-            return None
-        predictions = np.array(predictions_df['predictions'])
-        flowIDs = np.array(predictions_df['flowID'])
-        print(f"\033[90mLoaded {len(predictions)} predictions for {len(true_labels)} true labels and {len(flowIDs)} flowIDs\033[0m")
-        return predictions, flowIDs
-    except pd.errors.EmptyDataError:
-        print("\033[91mThe CSV file is empty 🔥\033[0m\n")
-        return None
-    except pd.errors.ParserError:
-        print("\033[91mThe file is not a valid CSV 🔥\033[0m\n")
-        return None
-    except Exception as e:
-        print(f"\033[91mGeneric Error 🔥\033[0m\n\033[90m{str(e)}\033[0m\n")
-        return None
-
 # Builds Kitsune
 def run_kitsune():
     global current_packet, true_labels, predicted_labels
-    kitsune = Kitsune(path, packet_limit, max_AutoEncoders, FM_grace, AD_grace)
     print("\n\033[90mRunning Kitsune\033[0m")
+    kitsune = Kitsune(path, packet_limit, max_AutoEncoders, FM_grace, AD_grace)
     start = time.time()
     # Processes the packets and visualizes the progress bars
     with Progress(*custom_columns) as progress:
@@ -202,7 +173,7 @@ if __name__ == "__main__":
             run_kitsune()
         
         elif user_choice == "2":
-                predictions = load_sampling_predictions(true_labels)
+                predictions = load_predictions(true_labels)
                 # Sampling rate validation
                 rate = 1.0  
                 while True:
@@ -223,7 +194,7 @@ if __name__ == "__main__":
                 tools.naive_sampling(predictions, rate, true_labels)
             
         elif user_choice == "3":
-            predictions, flowIDs = load_wasps_predictions(true_labels)
+            predictions, flowIDs = load_predictions(true_labels, wasps = True)
             # Sampling rate validation
             rate = 1.0  
             while True:
@@ -244,7 +215,7 @@ if __name__ == "__main__":
             
         # Performance analysis of the different detection systems architectures
         elif user_choice == "4":
-            predictions, flowIDs = load_wasps_predictions(true_labels)
+            predictions, flowIDs = load_predictions(true_labels, wasps = True)
             # Computes some metrics to evaluate the performance of the detection system
             tools.performance_analysis(predictions, flowIDs, true_labels)
         
