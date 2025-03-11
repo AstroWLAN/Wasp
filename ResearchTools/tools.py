@@ -1,10 +1,6 @@
-import numpy as np
 import math
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Set seaborn style
-sns.set_theme(style="whitegrid")
+import numpy as np
+import matplotlib.pyplot as plot
 
 # Performs a probabilistic sampling of the packets 
 def naive_sampling (predictions, rate, true_labels):
@@ -139,8 +135,9 @@ def wasps_detection (predictions, flowIDs, true_labels, rate = 1):
     
     return accuracy, precision, recall, f1
 
-# Computes some metrics to evaluate the performance of the detection system
-def performance_analysis (predictions, flowIDs, true_labels, rates = None):
+# Computes some metrics to evaluate the performance of the detection system 
+# Since the sampling is RANDOMIC each metric is computed multiple times and then averaged
+def performance_analysis (predictions, flowIDs, true_labels, rates = None, iterations = 10):
     # Results of the tests - separate lists for each method
     naive_recall_results = []
     naive_precision_results = []
@@ -152,48 +149,89 @@ def performance_analysis (predictions, flowIDs, true_labels, rates = None):
     
     # Sets the default rates if none are provided
     if rates is None:
-        rates = [0.001, 0.01, 0.1, 0.25, 0.5, 0.75, 1]
+        rates = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5, 1]
     
     print(f"\033[90mCollecting the performance of the architectures\033[0m")
     for rate in rates:
         print(f"\033[90mTesting the systems with a {rate} sampling rate\033[0m")
-        # Naive sampling
-        sampling_accuracy, sampling_precision, sampling_recall, sampling_f1 = naive_sampling(predictions, rate, true_labels)
-        # Wasps detection
-        wasps_accuracy, wasps_precision, wasps_recall, wasps_f1 = wasps_detection(predictions, flowIDs, true_labels, rate)
+        # Initialize accumulators for averaging
+        total_naive_recall = 0
+        total_naive_precision = 0
+        total_naive_f1 = 0
         
-        # Collects the results in separate lists
-        naive_recall_results.append(sampling_recall)
-        naive_precision_results.append(sampling_precision)
-        naive_f1_score_results.append(sampling_f1)
+        total_wasps_recall = 0
+        total_wasps_precision = 0
+        total_wasps_f1 = 0
         
-        wasps_recall_results.append(wasps_recall)
-        wasps_precision_results.append(wasps_precision)
-        wasps_f1_score_results.append(wasps_f1)
+        for _ in range(iterations):
+            # Naive sampling
+            sampling_accuracy, sampling_precision, sampling_recall, sampling_f1 = naive_sampling(predictions, rate, true_labels)
+            # Wasps detection
+            wasps_accuracy, wasps_precision, wasps_recall, wasps_f1 = wasps_detection(predictions, flowIDs, true_labels, rate)
+            
+            # Accumulate results
+            total_naive_recall += sampling_recall
+            total_naive_precision += sampling_precision
+            total_naive_f1 += sampling_f1
+            
+            total_wasps_recall += wasps_recall
+            total_wasps_precision += wasps_precision
+            total_wasps_f1 += wasps_f1
         
+        # Calculate averages
+        avg_naive_recall = total_naive_recall / iterations
+        avg_naive_precision = total_naive_precision / iterations
+        avg_naive_f1 = total_naive_f1 / iterations
+        
+        avg_wasps_recall = total_wasps_recall / iterations
+        avg_wasps_precision = total_wasps_precision / iterations
+        avg_wasps_f1 = total_wasps_f1 / iterations
+        
+        # Collects the average results in separate lists
+        naive_recall_results.append(avg_naive_recall)
+        naive_precision_results.append(avg_naive_precision)
+        naive_f1_score_results.append(avg_naive_f1)
+        
+        wasps_recall_results.append(avg_wasps_recall)
+        wasps_precision_results.append(avg_wasps_precision)
+        wasps_f1_score_results.append(avg_wasps_f1)
+    
     # Calculate inverse for each rate
     inverse_rates = [1/rate for rate in rates]
     
-    # Generates the recall plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(inverse_rates, naive_recall_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
-    plt.plot(inverse_rates, wasps_recall_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasps Detection')
-    plt.xlabel('1/R')
-    plt.ylabel('Recall')
-    plt.grid(True, alpha=0.3, linestyle='--', color='gray')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('recall_vs_inverse_sampling_rate.png')
-    plt.show(block=False)
+    # PLOTS [ using logarithmic scale for the x-axis ] 
+    # Recall plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_recall_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_recall_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='bold')
+    plot.ylabel('Recall', fontweight='bold')
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.show(block=False)
     
-    # Generates the precision plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(inverse_rates, naive_precision_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
-    plt.plot(inverse_rates, wasps_precision_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasps Detection')
-    plt.xlabel('1/R')
-    plt.ylabel('Precision')
-    plt.grid(True, alpha=0.3, linestyle='--', color='gray')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('precision_vs_inverse_sampling_rate.png')
-    plt.show(block=False)
+    # Precision plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_precision_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_precision_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='bold')
+    plot.ylabel('Precision', fontweight='bold')
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.show(block=False)
+    
+    # F1 score plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_f1_score_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_f1_score_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='bold')
+    plot.ylabel('F1 Score', fontweight='bold')
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.show(block=False)
