@@ -1,6 +1,9 @@
+import os
+import csv
 import math
 import numpy as np
 import matplotlib.pyplot as plot
+from pathlib import Path
 
 # Conducts probabilistic sampling on packets
 def naive_sampling (predictions, rate, true_labels):
@@ -106,7 +109,15 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
     # Sets default rates if none are provided
     if rates is None:
         rates = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5, 1]
-        
+
+    # Asks the user for the attack name that will be used to name the .csv file for the metrics
+    attack_name = input("\033[97mPlease enter the name of the attack : \033[0m")
+    # Generates the .csv filename and saves it to the desktop
+    desktop_path = str(Path.home() / "Desktop")
+    csv_filename = os.path.join(desktop_path, f"metrics_{attack_name}.csv")
+    # Prepares data for CSV
+    csv_data = []
+
     print("\033[97mCollecting the performance of the architectures ⏱️\033[0m\n")
     for rate in rates:
         # Averaging accumulators
@@ -144,6 +155,17 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
         wasps_precision_results.append(avg_wasps_precision)
         wasps_f1_score_results.append(avg_wasps_f1)
         
+        # Stores data for the .csv
+        csv_data.append({
+            'rate': rate,
+            'naive_recall': avg_naive_recall,
+            'naive_precision': avg_naive_precision,
+            'naive_f1': avg_naive_f1,
+            'wasps_recall': avg_wasps_recall,
+            'wasps_precision': avg_wasps_precision,
+            'wasps_f1': avg_wasps_f1
+        })
+        
         # Visualizes the metrics for the naive sampling approach
         print(f"\033[97mRate : {rate}\033[0m")
         print(f"Naive Sampling")
@@ -152,6 +174,26 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
         print(f"Wasp Detection")
         print(f"\033[90mRecall:\033[0m {avg_wasps_recall:.8f}\n\033[90mPrecision:\033[0m {avg_wasps_precision:.8f}\n\033[90mF1 Score:\033[0m {avg_wasps_f1:.8f}")
         print("\033[92mDone!\033[0m\n")
+    
+    # Saves the metrics to .csv file
+    with open(csv_filename, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow([f"Attack: {attack_name}"])
+        csv_writer.writerow([])  # Empty row
+        csv_writer.writerow([
+            "RATE", 
+            "NAIVE SAMPLING : Recall", "NAIVE SAMPLING : Precision", "NAIVE SAMPLING : F1 Score",
+            "WASP DETECTION : Recall", "WASP DETECTION : Precision", "WASP DETECTION : F1 Score"
+        ])
+        for data in csv_data:
+            # Write data for each rate
+            csv_writer.writerow([
+                data['rate'],
+                f"{data['naive_recall']:.8f}", f"{data['naive_precision']:.8f}", f"{data['naive_f1']:.8f}",
+                f"{data['wasps_recall']:.8f}", f"{data['wasps_precision']:.8f}", f"{data['wasps_f1']:.8f}"
+            ])
+    print(f"\033[90mMetrics have been saved to {csv_filename}\033[0m")
+    print("\033[92mDone!\033[0m\n")
     
     # Calculates the inverse of each rate
     inverse_rates = [1/rate for rate in rates]
@@ -167,7 +209,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
     plot.tight_layout()
-    plot.ylim(-1, 2)
+    plot.ylim(-0.5, 1.5)
     plot.show(block=False)
     
     # Precision plot
@@ -180,7 +222,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
     plot.tight_layout()
-    plot.ylim(-1, 2)
+    plot.ylim(-0.5, 1.5)
     plot.show(block=False)
     
     # F1 score plot
@@ -193,5 +235,5 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 10)
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
     plot.tight_layout()
-    plot.ylim(-1, 2)
+    plot.ylim(-0.5, 1.5)
     plot.show(block=False)
