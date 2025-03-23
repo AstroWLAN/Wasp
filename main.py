@@ -3,13 +3,15 @@ import os
 import time
 import numpy as np
 import pandas as pd
-from Kitsune import Kitsune
+from Kitsune.Kitsune import Kitsune
 from ResearchTools import tools
 from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
 
 # PARAMETERS
 # Gets the folder where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
+# Resource directory for pcap and csv files
+resource_dir = os.path.join(script_dir, "Resources")
 # Limits to the number of packets to process [ useless tho... ]
 packet_limit = np.inf
 # KitNET settings
@@ -43,7 +45,7 @@ custom_columns = [
 # Loads the TL [ true labels ] from a .csv file
 def load_TL():
     # Retrieves the file
-    default_TL_path = os.path.join(script_dir, "mirai_true_labels.csv")
+    default_TL_path = os.path.join(resource_dir, "mirai_true_labels.csv")
     TL_path = input(f"\033[97mEnter .csv path for true labels \033[90m[default: {default_TL_path}]\033[97m : \033[0m")
     if not TL_path.strip():
         # Default path [ pressed ENTER ]
@@ -126,7 +128,7 @@ def run_kitsune():
     predicted_labels = []
     true_labels = load_TL()
     # Loads a .pcap file
-    default_pcap_path = os.path.join(script_dir, "mirai_packets.pcap")
+    default_pcap_path = os.path.join(resource_dir, "mirai_packets.pcap")
     pcap_path = input(f"\033[97mEnter .pcap file path \033[90m[default: {default_pcap_path}]\033[97m : \033[0m")  
     if not pcap_path.strip():
         # Default path [ pressed ENTER ]
