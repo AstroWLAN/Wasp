@@ -19,6 +19,23 @@ def plot_dataset():
     if label_column < 0 or label_column >= len(dataframe.columns):
         print(f"Column index {label_column} is out of range (0-{len(dataframe.columns)-1}).")
         return  
+    
+    # Collects the number of training packets [ must be removed from the dataset ]
+    try:
+        training = int(input("\033[37mTraining packets [ \033[90minteger\033[37m ] : \033[0m"))
+        if training < 0:
+            print("\033[91mCannot be a negative value 🔥\033[0m")
+            return
+        if training >= len(dataframe):
+            print("\033[91mNCannot be greater than the dataset size 🔥\033[0m")
+            return
+        # Removes the first N instances from the dataset
+        dataframe = dataframe.iloc[training:]
+        print(f"\033[90mRemoving first {training} packets from the dataset\033[0m")
+    except ValueError:
+        print("\033[91mEnter a valid integer 🔥\033[0m")
+        return
+    
     # Gets the requested column
     column = dataframe.iloc[:, label_column]
     # Counts the number of benign and malicious packets
@@ -57,12 +74,16 @@ def plot_dataset():
     plt.title(f'{attack} Dataset Composition', fontweight='semibold')
     # Visualizes the plot
     plt.tight_layout()
-    # Saves the plot to the \Results folder 
-    plt.savefig(f'Results/{attack.lower()} distribution.png')
-    print("\033[90mPlot saved in the \Result folder\033[0m\n\033[92mDone!\033[0m")
+    # Retrieves the desktop path
+    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+    # Saves the plot to the desktop
+    plt.savefig(os.path.join(desktop_path, f'{attack.lower()} distribution.png'))
+    print(f"\033[90mPlot saved to desktop as '{attack.lower()} distribution.png'\033[0m\n\033[92mDone\033[0m")
     plt.show()
 
 # MAIN
 if __name__ == "__main__":
-    print("\n\033[37mResearchKit 🔎\033[0m\n\033[90mDataset Analyzer\n\033[0m")
+    # Wipes the terminal
+    os.system('clear')
+    print("\n\033[1;37mResearchKit 🔎\033[0m\n\033[90mDataset analyzer\n\033[0m")
     plot_dataset() 
