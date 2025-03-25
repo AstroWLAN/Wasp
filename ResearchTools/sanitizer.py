@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-# Sanitizes the dataset from previously inserted headers and useless information [ isolates the true labels ]
+# Sanitizes the dataset from previously inserted headers or useless information [ isolates the true labels ]
 def sanitizer():
     try:
         # Retrieves user information
