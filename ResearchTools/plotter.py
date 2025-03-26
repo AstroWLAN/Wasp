@@ -49,14 +49,13 @@ def plotter():
         plt.tight_layout()
         
         # Saves the plot to the desktop
-        plt.savefig(os.path.join(desktop, f'{attack.lower()} composition.png'), dpi=384)
-        print(f"\033[90mPlot saved to desktop as '{attack.lower()} composition.png'\033[0m\n\033[92mDone\033[0m")
-        plt.show()
+        plt.savefig(os.path.join(desktop, f'{attack.lower()}_distribution.png'), dpi=384)
+        print(f"\033[90mPlot saved to desktop as '{attack.lower()}_distribution.png'\033[0m\n\033[92mDone\033[0m")
         
     except Exception as error:
         print(f"\033[91mSomething went wrong 🔥\033[0m\033[90m\n{str(error)}\n\033[0m")
 
 # MAIN
 if __name__ == "__main__":
-    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mDataset analyzer\n\033[0m")
+    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mDataset plotter\n\033[0m")
     plotter()  
