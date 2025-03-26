@@ -166,7 +166,7 @@ if __name__ == "__main__":
         user_choice = input("\n\033[97mInsert your choice [\033[90m1-4\033[97m] : \033[0m")
         
         # Validates the user input
-        if user_choice not in ["1", "2", "3"]:
+        if user_choice not in ["1", "2", "3", "4"]:
             print("\033[91mInvalid choice 🔥\033[0m\n\033[90mEnter a valid number in the range\n\033[0m")
             continue
         

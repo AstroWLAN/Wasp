@@ -9,13 +9,14 @@ from sklearn.metrics import roc_curve, roc_auc_score
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
 
-# Conducts probabilistic sampling on packets
+# Conducts probabilistic sampling on packets and computes the metrics
 def naive_sampling (predictions, rate, true_labels):
     # Stores processed predictions [ initialized from the original for later modification ]
     sampled_predictions = predictions.copy()
     # Sampling parameters and indices
     N = len(predictions)
     M = math.floor(N * rate)
+    # Improves the randomness of the probabilistic sampling process
     rng = default_rng()
     indices = rng.choice(N, size=M, replace=False)
     # Sets all values to 0 except at selected indices [ 0 means that the packet is benign ]
@@ -39,10 +40,10 @@ def naive_sampling (predictions, rate, true_labels):
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
     # Computes the accuracy [ overall correctness of a model ]
     accuracy = (TP + TN) / (TP + TN + FP + FN) if N > 0 else 0
+    # Returns the metrics 
+    return accuracy, precision, recall, f1, TP, FP, FN, TN
 
-    return accuracy, precision, recall, f1
-
-# Samples packets considering observed malicious flows
+# Conducts sampling making assumptions looking at the registered malicious flows
 def wasp_detection (predictions, flowIDs, rate, true_labels):
     # Set of observed malicious flows
     wasp_nest = set()
@@ -53,6 +54,7 @@ def wasp_detection (predictions, flowIDs, rate, true_labels):
     M = math.floor(N * rate)
     # Packets labeled as malicious with the Wasp Detection architecture
     detected_wasps = 0
+    # Improves the randomness of the probabilistic sampling process
     rng = default_rng()
     indices = rng.choice(N, size=M, replace=False)
     
@@ -68,7 +70,7 @@ def wasp_detection (predictions, flowIDs, rate, true_labels):
     
     # Processes each prediction using the sampling mask and wasp_nest logic
     for i in range(N):
-        # Process non-sampled packets using wasp_nest information
+        # Processes non-sampled packets using wasp_nest information
         if sampling_mask[i]:
             # If the packet's flow is in wasp_nest, mark it as malicious
             if flowIDs[i] in wasp_nest:
@@ -78,8 +80,8 @@ def wasp_detection (predictions, flowIDs, rate, true_labels):
                 wasp_predictions[i] = 0
             continue
             
-        # For sampled packets, keep the original predictions unchanged
-        # Remove the counting of detected wasps for sampled packets
+        # For sampled packets keep the original predictions made by KitNET unchanged
+        # Removes the counting of detected wasps for sampled packets
         wasp_predictions[i] = predictions[i]
     
     # Calculates the metrics 
@@ -95,20 +97,29 @@ def wasp_detection (predictions, flowIDs, rate, true_labels):
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
     # Computes the accuracy
     accuracy = (TP + TN) / (TP + TN + FP + FN) if N > 0 else 0
-    return accuracy, precision, recall, f1, detected_wasps
+    # Returns the metrics 
+    return accuracy, precision, recall, f1, detected_wasps, TP, FP, FN, TN
 
 # Computes metrics to evaluate the detection architectures' performance
-# Since the sampling is randomic each metric is computed multiple times and then averaged to obtain a more uniform result
+# Since the sampling is randomic each benchmark is run multiple times and then averaged to obtain a more uniform result
 def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300):
-    # Results of the tests
+    # Results of the benchmarks
     naive_recall_results = []
     naive_precision_results = []
     naive_f1_score_results = []
     naive_accuracy_results = []
+    naive_tp_results = []
+    naive_fp_results = []
+    naive_fn_results = []
+    naive_tn_results = []
     wasps_recall_results = []
     wasps_precision_results = []
     wasps_f1_score_results = []
     wasps_accuracy_results = []
+    wasps_tp_results = []
+    wasps_fp_results = []
+    wasps_fn_results = []
+    wasps_tn_results = []
     
     # Sets default rates if none are provided
     if rates is None:
@@ -137,25 +148,41 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         total_naive_precision = 0
         total_naive_f1 = 0
         total_naive_accuracy = 0
+        total_naive_tp = 0
+        total_naive_fp = 0
+        total_naive_fn = 0
+        total_naive_tn = 0
         total_wasps_recall = 0
         total_wasps_precision = 0
         total_wasps_f1 = 0
         total_wasps_accuracy = 0
+        total_wasps_tp = 0
+        total_wasps_fp = 0
+        total_wasps_fn = 0
+        total_wasps_tn = 0
         total_wasps_detected = 0
         
         for _ in range(iterations):
             # Computes the metrics for the architectures
-            sampling_accuracy, sampling_precision, sampling_recall, sampling_f1 = naive_sampling(predictions, rate, true_labels)
-            wasps_accuracy, wasps_precision, wasps_recall, wasps_f1, wasps_detected = wasp_detection(predictions, flowIDs, rate,true_labels)
+            sampling_accuracy, sampling_precision, sampling_recall, sampling_f1, sampling_tp, sampling_fp, sampling_fn, sampling_tn = naive_sampling(predictions, rate, true_labels)
+            wasps_accuracy, wasps_precision, wasps_recall, wasps_f1, wasps_detected, wasps_tp, wasps_fp, wasps_fn, wasps_tn = wasp_detection(predictions, flowIDs, rate,true_labels)
             # Accumulates the results
             total_naive_recall += sampling_recall
             total_naive_precision += sampling_precision
             total_naive_f1 += sampling_f1
             total_naive_accuracy += sampling_accuracy
+            total_naive_tp += sampling_tp
+            total_naive_fp += sampling_fp
+            total_naive_fn += sampling_fn
+            total_naive_tn += sampling_tn
             total_wasps_recall += wasps_recall
             total_wasps_precision += wasps_precision
             total_wasps_f1 += wasps_f1
             total_wasps_accuracy += wasps_accuracy
+            total_wasps_tp += wasps_tp
+            total_wasps_fp += wasps_fp
+            total_wasps_fn += wasps_fn
+            total_wasps_tn += wasps_tn
             total_wasps_detected += wasps_detected
         
         # Calculates the average values and stores them in the result lists 
@@ -163,10 +190,18 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         avg_naive_precision = total_naive_precision / iterations
         avg_naive_f1 = total_naive_f1 / iterations
         avg_naive_accuracy = total_naive_accuracy / iterations
+        avg_naive_tp = total_naive_tp / iterations
+        avg_naive_fp = total_naive_fp / iterations
+        avg_naive_fn = total_naive_fn / iterations
+        avg_naive_tn = total_naive_tn / iterations
         avg_wasps_recall = total_wasps_recall / iterations
         avg_wasps_precision = total_wasps_precision / iterations
         avg_wasps_f1 = total_wasps_f1 / iterations
         avg_wasps_accuracy = total_wasps_accuracy / iterations
+        avg_wasps_tp = total_wasps_tp / iterations
+        avg_wasps_fp = total_wasps_fp / iterations
+        avg_wasps_fn = total_wasps_fn / iterations
+        avg_wasps_tn = total_wasps_tn / iterations
         avg_wasps_detected = total_wasps_detected / iterations
         print(f"\033[97m[\033[90m(1-P)*Q\033[97m]\033[90m Malicious Wasps : {math.floor(avg_wasps_detected)}\n\033[97m[\033[90m(1-P)*(1-Q)\033[97m]\033[90m Benign Wasps : {N - M - math.floor(avg_wasps_detected)}\033[0m")
 
@@ -174,10 +209,18 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         naive_precision_results.append(avg_naive_precision)
         naive_f1_score_results.append(avg_naive_f1)
         naive_accuracy_results.append(avg_naive_accuracy)
+        naive_tp_results.append(avg_naive_tp)
+        naive_fp_results.append(avg_naive_fp)
+        naive_fn_results.append(avg_naive_fn)
+        naive_tn_results.append(avg_naive_tn)
         wasps_recall_results.append(avg_wasps_recall)
         wasps_precision_results.append(avg_wasps_precision)
         wasps_f1_score_results.append(avg_wasps_f1)
         wasps_accuracy_results.append(avg_wasps_accuracy)
+        wasps_tp_results.append(avg_wasps_tp)
+        wasps_fp_results.append(avg_wasps_fp)
+        wasps_fn_results.append(avg_wasps_fn)
+        wasps_tn_results.append(avg_wasps_tn)
         
         # Stores data for the .csv
         csv_data.append({
@@ -186,18 +229,28 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
             'naive_precision': avg_naive_precision,
             'naive_f1': avg_naive_f1,
             'naive_accuracy': avg_naive_accuracy,
+            'naive_tp': avg_naive_tp,
+            'naive_fp': avg_naive_fp,
+            'naive_fn': avg_naive_fn,
+            'naive_tn': avg_naive_tn,
             'wasps_recall': avg_wasps_recall,
             'wasps_precision': avg_wasps_precision,
             'wasps_f1': avg_wasps_f1,
-            'wasps_accuracy': avg_wasps_accuracy
+            'wasps_accuracy': avg_wasps_accuracy,
+            'wasps_tp': avg_wasps_tp,
+            'wasps_fp': avg_wasps_fp,
+            'wasps_fn': avg_wasps_fn,
+            'wasps_tn': avg_wasps_tn
         })
         print("\033[90m" + "─" * 37 + "\033[0m")
         # Visualizes the metrics for the naive sampling approach
         print(f"\033[97m• Naive Sampling\033[0m")
         print(f"\033[97m[\033[90mRecall\033[97m] :\033[0m {avg_naive_recall:.8f}\n\033[97m[\033[90mPrecision\033[97m] :\033[0m {avg_naive_precision:.8f}\n\033[97m[\033[90mF1 Score\033[97m] :\033[0m {avg_naive_f1:.8f}\n\033[97m[\033[90mAccuracy\033[97m] :\033[0m {avg_naive_accuracy:.8f}")
+        print(f"\033[97m[\033[90mTP\033[97m] :\033[0m {avg_naive_tp:.8f}\n\033[97m[\033[90mFP\033[97m] :\033[0m {avg_naive_fp:.8f}\n\033[97m[\033[90mFN\033[97m] :\033[0m {avg_naive_fn:.8f}\n\033[97m[\033[90mTN\033[97m] :\033[0m {avg_naive_tn:.8f}")
         # Visualizes the metrics for the wasp detection architecture
         print(f"\033[97m• Wasp Detection\033[0m")
         print(f"\033[97m[\033[90mRecall\033[97m] :\033[0m {avg_wasps_recall:.8f}\n\033[97m[\033[90mPrecision\033[97m] :\033[0m {avg_wasps_precision:.8f}\n\033[97m[\033[90mF1 Score\033[97m] :\033[0m {avg_wasps_f1:.8f}\n\033[97m[\033[90mAccuracy\033[97m] :\033[0m {avg_wasps_accuracy:.8f}")
+        print(f"\033[97m[\033[90mTP\033[97m] :\033[0m {avg_wasps_tp:.8f}\n\033[97m[\033[90mFP\033[97m] :\033[0m {avg_wasps_fp:.8f}\n\033[97m[\033[90mFN\033[97m] :\033[0m {avg_wasps_fn:.8f}\n\033[97m[\033[90mTN\033[97m] :\033[0m {avg_wasps_tn:.8f}")
         print("\033[96mMetrics Collected\033[0m\n")
     
     # Saves the metrics to .csv file
@@ -208,14 +261,18 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         csv_writer.writerow([
             "Sampling Rate", 
             "NS_Recall", "NS_Precision", "NS_F1", "NS_Accuracy",
-            "WD_Recall", "WD_Precision", "WD_F1", "WD_Accuracy"
+            "NS_TP", "NS_FP", "NS_FN", "NS_TN",
+            "WD_Recall", "WD_Precision", "WD_F1", "WD_Accuracy",
+            "WD_TP", "WD_FP", "WD_FN", "WD_TN"
         ])
         for data in csv_data:
             # Write data for each rate
             csv_writer.writerow([
                 data['rate'],
                 f"{data['naive_recall']:.8f}", f"{data['naive_precision']:.8f}", f"{data['naive_f1']:.8f}", f"{data['naive_accuracy']:.8f}",
-                f"{data['wasps_recall']:.8f}", f"{data['wasps_precision']:.8f}", f"{data['wasps_f1']:.8f}", f"{data['wasps_accuracy']:.8f}"
+                f"{data['naive_tp']:.8f}", f"{data['naive_fp']:.8f}", f"{data['naive_fn']:.8f}", f"{data['naive_tn']:.8f}",
+                f"{data['wasps_recall']:.8f}", f"{data['wasps_precision']:.8f}", f"{data['wasps_f1']:.8f}", f"{data['wasps_accuracy']:.8f}",
+                f"{data['wasps_tp']:.8f}", f"{data['wasps_fp']:.8f}", f"{data['wasps_fn']:.8f}", f"{data['wasps_tn']:.8f}"
             ])
     print(f"\033[90mSaving the collected metrics to the desktop\033[0m")
     print("\033[92mDone\033[0m\n")
@@ -272,7 +329,55 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     plot.tight_layout()
     plot.savefig(os.path.join(desktop, f'{attack.lower()}_accuracy.png'), dpi=384)
     
-# Computes metrics to evaluate the performance of vanilla KitNET
+    # TP plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_tp_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_tp_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
+    plot.ylabel('True Positives', fontweight='semibold', labelpad=10)
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.savefig(os.path.join(desktop, f'{attack.lower()}_tp.png'), dpi=384)
+    
+    # FP plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_fp_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_fp_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
+    plot.ylabel('False Positives', fontweight='semibold', labelpad=10)
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.savefig(os.path.join(desktop, f'{attack.lower()}_fp.png'), dpi=384)
+    
+    # FN plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_fn_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_fn_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
+    plot.ylabel('False Negatives', fontweight='semibold', labelpad=10)
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.savefig(os.path.join(desktop, f'{attack.lower()}_fn.png'), dpi=384)
+    
+    # TN plot
+    plot.figure(figsize=(10, 6))
+    plot.plot(inverse_rates, naive_tn_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_tn_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
+    plot.ylabel('True Negatives', fontweight='semibold', labelpad=10)
+    plot.xscale('log')  
+    plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+    plot.legend()
+    plot.tight_layout()
+    plot.savefig(os.path.join(desktop, f'{attack.lower()}_tn.png'), dpi=384)
+
+# Computes metrics to evaluate the performance of the original version of KitNET [ implemented following the paper by Mirsky et al. ]
 def kitBenchmark(predictions, true_labels):
     print("\033[1;97mKitNET Benchmark 🌱\033[0m")
     print(f"\033[90mThis version of KitNET has m={10} and features={100}\033[0m\n")
