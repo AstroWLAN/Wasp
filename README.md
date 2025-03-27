@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/AstroWLAN/Kitsune/blob/wasp/Resources/Banner.png" alt="Banner" width="60%">
+  <img src="https://github.com/AstroWLAN/Kitsune/blob/wasp/Resources/Logo.png" alt="Logo" width="30%">
 </div>
 <br>
 
