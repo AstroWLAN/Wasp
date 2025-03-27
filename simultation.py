@@ -90,7 +90,6 @@ def run_kitsune():
         # Runs Kitsune
         print("\n\033[1;97mStarting KitNET 🦊\033[0m")
         kitsune = Kitsune(pcap_path, packet_limit, max_AutoEncoders, FM_grace, AD_grace)
-        features = kitsune.FE.get_num_features()
         start = time.time()
         # Processes the packets and visualizes the progress bars
         with Progress(*custom_columns) as progress:
