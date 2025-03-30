@@ -22,7 +22,8 @@ Since the datasets have different structures a pre-processing step is required t
 1️⃣ Run `sanitizer.py` to standardize the true labels `.csv` file  
 > In most cases the labels are located in column index `1`
 
-2️⃣ Run `plotter.py` to visualize the distribution of true labels from the `.csv` file generated in the previous step
+To visualize the distribution of the ground-truth labels run `plotter.py` and provide the `.csv` file generated in the previous step 
+> Make sure to exclude the packets used for neural network training
 
 ## Simulation 🔬
 Run `simulation.py` to launch the simulation interface : a menu with multiple options will appear<br>
