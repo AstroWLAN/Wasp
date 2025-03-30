@@ -159,7 +159,7 @@ if __name__ == "__main__":
     # Menu
     while True:
         print("\033[97m1. KitNET\033[0m")
-        print("\033[97m2. Architectures Benchmark\033[0m")
+        print("\033[97m2. Architecture Benchmarks\033[0m")
         print("\033[97m3. KitNET Benchmark\033[0m")
         print("\033[97m3. Quit\033[0m")
         user_choice = input("\n\033[97mInsert your choice [\033[90m1-4\033[97m] : \033[0m")

@@ -133,7 +133,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     # Prepares data for CSV
     csv_data = []
 
-    print("\n\033[1;97mArchitectures Benchmark 🏛️\033[0m\n")
+    print("\n\033[1;97mArchitecture Benchmarks 🏛️\033[0m\n")
     for rate in rates:
         # Sampling parameters and indices
         N = len(predictions)
