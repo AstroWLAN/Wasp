@@ -290,6 +290,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
+    plot.ylim(-0.05, 1.05)
     plot.tight_layout()
     plot.savefig(os.path.join(desktop, f'{attack.lower()}_recall.png'), dpi=384)
     
@@ -302,6 +303,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
+    plot.ylim(-0.05, 1.05)
     plot.tight_layout()
     plot.savefig(os.path.join(desktop, f'{attack.lower()}_precision.png'), dpi=384)
     
@@ -314,6 +316,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
+    plot.ylim(-0.05, 1.05)
     plot.tight_layout()
     plot.savefig(os.path.join(desktop, f'{attack.lower()}_F1.png'), dpi=384)
     
@@ -326,6 +329,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle='--', color='gray')
     plot.legend()
+    plot.ylim(-0.05, 1.05)
     plot.tight_layout()
     plot.savefig(os.path.join(desktop, f'{attack.lower()}_accuracy.png'), dpi=384)
     
