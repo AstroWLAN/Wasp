@@ -283,6 +283,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     # PLOTS [ using logarithmic scale for the x-axis ] 
     # Recall plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_recall_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_recall_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -296,6 +297,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # Precision plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_precision_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_precision_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -309,6 +311,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # F1 score plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_f1_score_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_f1_score_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -322,6 +325,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # Accuracy plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_accuracy_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_accuracy_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -335,6 +339,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # TP plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_tp_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_tp_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -347,6 +352,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # FP plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_fp_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_fp_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -359,6 +365,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # FN plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_fn_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_fn_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
@@ -371,6 +378,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     
     # TN plot
     plot.figure(figsize=(10, 6))
+    plot.rcParams.update({'font.size': 15})
     plot.plot(inverse_rates, naive_tn_results, marker='o', linestyle='-', linewidth=2, color='blue', label='Naive Sampling')
     plot.plot(inverse_rates, wasps_tn_results, marker='o', linestyle='-', linewidth=2, color='green', label='Wasp Detection')
     plot.xlabel('1/R', fontweight='semibold', labelpad=10)
