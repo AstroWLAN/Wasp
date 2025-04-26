@@ -64,7 +64,7 @@ class incStat:
 
     def std(self):
         if math.isnan(self.cur_std):  # calculate it only once when necessary
-            self.cur_std = math.sqrt(self.var())
+            self.cur_std = self.var()  # Removes the sqrt -> returns variance directly
         return self.cur_std
 
     def cov(self,ID2):
@@ -89,7 +89,7 @@ class incStat:
         A = self.var()**2
         for incS in other_incStats:
             A += incS.var()**2
-        return math.sqrt(A)
+        return A  # Removes the sqrt
 
     def magnitude(self, other_incStats):  # the magnitude of a set of incStats
         A = math.pow(self.mean(), 2)
