@@ -3,6 +3,10 @@
 </div>
 <br>
 
+## Warning 🚨
+`wasp_research` is a branch used to carry out research related to the Wasp project
+> It contains features under development and ongoing experiments
+
 ## Abstract 💭
 Wasp provides an architecture for efficiently labeling network packets in scenarios where inspecting every packet is impractical due to performance constraints
 > This research work is based on Yisroel Mirsky’s paper [Kitsune](https://arxiv.org/abs/1802.09089) and its corresponding [repo](https://github.com/ymirsky/Kitsune-py)
