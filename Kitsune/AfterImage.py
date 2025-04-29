@@ -95,7 +95,8 @@ class incStat:
         A = math.pow(self.mean(), 2)
         for incS in other_incStats:
             A += math.pow(incS.mean(), 2)
-        return math.sqrt(A)
+        # Removes the sqrt
+        return A
 
     #calculates and pulls all stats on this stream
     def allstats_1D(self):
@@ -365,8 +366,8 @@ class incStatDB:
         for incS in incStats:
             rad += incS.var()
             mag += incS.mean()**2
-
-        return [np.sqrt(rad),np.sqrt(mag)]
+        # Removes the sqrt
+        return [np.rad,np.mag]
 
     # Updates and then pulls current 1D stats from the given ID. Automatically registers previously unknown stream IDs
     def update_get_1D_Stats(self, ID,t,v,Lambda=1,isTypeDiff=False):  # weight, mean, std
