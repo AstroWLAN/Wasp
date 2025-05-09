@@ -422,3 +422,115 @@ def kitBenchmark(predictions, true_labels):
     print(f"\033[97m[\033[90mFNR -→ FPR = 0\033[97m]     False Negative Rate : \033[0m {fnr_at_fpr0:.8f}")
     print(f"\033[97m[\033[90mFNR -→ FPR = 0.001\033[97m] False Negative Rate : \033[0m {fnr_at_fpr001:.8f}")
     print("\033[92mDone\033[0m\n")
+
+# Merges the metrics from multiple CSV files and generates combined plots [ Root and Power versions ]
+def merge_metrics():
+    print("\n\033[1;97mMerge Metrics 🧲\033[0m")
+    
+    # Get attack name
+    attack = input("\033[97mAttack : \033[0m")
+    
+    # Get CSV paths for Root and Power versions
+    root_csv = input("\n\033[97mROOT version [\033[90m.csv path\033[97m] : \033[0m")
+    power_csv = input("\033[97mPOWER version [\033[90m.csv path\033[97m] : \033[0m")
+    
+    # Reads and processes the CSV files
+    all_data = []
+    for csv_path in [root_csv, power_csv]:
+        try:
+            with open(csv_path, 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                next(reader)
+                next(reader)
+                next(reader)  # Skip the header row
+                # Reads the data
+                data = []
+                for row in reader:
+                    data.append([float(val) for val in row])
+                all_data.append(data)
+        except Exception as error:
+            print(f"\033[91mError reading {csv_path} 🔥\033[0m\033[90m\n{str(error)}\n\033[0m")
+            return
+    
+    # Extracts the metrics for each file
+    metrics = []
+    for data in all_data:
+        file_metrics = {
+            'rate': [row[0] for row in data],
+            'naive_recall': [row[1] for row in data],
+            'naive_precision': [row[2] for row in data],
+            'naive_f1': [row[3] for row in data],
+            'naive_accuracy': [row[4] for row in data],
+            'naive_tp': [row[5] for row in data],
+            'naive_fp': [row[6] for row in data],
+            'naive_fn': [row[7] for row in data],
+            'naive_tn': [row[8] for row in data],
+            'wasps_recall': [row[9] for row in data],
+            'wasps_precision': [row[10] for row in data],
+            'wasps_f1': [row[11] for row in data],
+            'wasps_accuracy': [row[12] for row in data],
+            'wasps_tp': [row[13] for row in data],
+            'wasps_fp': [row[14] for row in data],
+            'wasps_fn': [row[15] for row in data],
+            'wasps_tn': [row[16] for row in data]
+        }
+        metrics.append(file_metrics)
+    
+    # Generates the combined plots
+    desktop = str(Path.home() / "Desktop")
+    
+    # Define colors and styles for the four curves
+    styles = [
+        {'color': 'blue', 'marker': 'o', 'linestyle': ':', 'label': 'Naive Sampling • Root'},
+        {'color': 'red', 'marker': 's', 'linestyle': '-', 'label': 'Naive Sampling • Power'},
+        {'color': 'green', 'marker': '^', 'linestyle': ':', 'label': 'Wasp Detection • Root'},
+        {'color': 'purple', 'marker': 'd', 'linestyle': '-', 'label': 'Wasp Detection • Power'}
+    ]
+    
+    # Plots the metrics
+    metrics_to_plot = [
+        ('recall', 'Recall'),
+        ('precision', 'Precision'),
+        ('f1', 'F1 Score'),
+        ('accuracy', 'Accuracy'),
+        ('tp', 'True Positives'),
+        ('fp', 'False Positives'),
+        ('fn', 'False Negatives'),
+        ('tn', 'True Negatives')
+    ]
+    
+    for metric, title in metrics_to_plot:
+        plot.figure(figsize=(10, 6))
+        plot.rcParams.update({'font.size': 15})
+        
+        # Plots the Naive Sampling curves
+        for i, file_metrics in enumerate(metrics):
+            inverse_rates = [1/rate for rate in file_metrics['rate']]
+            plot.plot(inverse_rates, file_metrics[f'naive_{metric}'], 
+                     marker=styles[i]['marker'], linestyle=styles[i]['linestyle'], 
+                     linewidth=2, color=styles[i]['color'], 
+                     label=styles[i]['label'])
+        
+        # Plots the Wasp Detection curves
+        for i, file_metrics in enumerate(metrics):
+            inverse_rates = [1/rate for rate in file_metrics['rate']]
+            plot.plot(inverse_rates, file_metrics[f'wasps_{metric}'], 
+                     marker=styles[i+2]['marker'], linestyle=styles[i+2]['linestyle'], 
+                     linewidth=2, color=styles[i+2]['color'], 
+                     label=styles[i+2]['label'])
+        
+        plot.xlabel('1/R', fontweight='semibold', labelpad=10)
+        plot.ylabel(title, fontweight='semibold', labelpad=10)
+        plot.xscale('log')
+        plot.grid(True, alpha=0.3, linestyle='--', color='gray')
+        plot.legend()
+        if title in ['Recall', 'Precision', 'F1 Score', 'Accuracy']:
+            plot.ylim(-0.05, 1.05)
+        plot.tight_layout()
+        
+        # Saves the plot with the attack name
+        plot.savefig(os.path.join(desktop, f'{attack.lower()}_{metric}.png'), dpi=384)
+        plot.close()
+    
+    print("\n\033[90mGenerating combined plots...\033[0m")
+    print("\033[92mDone\033[0m\n")

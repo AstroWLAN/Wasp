@@ -1,6 +1,7 @@
 import math
 import numpy as np
 
+# ‼️ This implementation of AfterImage DOES NOT use the square root -> math.sqrt() has been removed from the code
 
 class incStat:
     def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False):  # timestamp is creation time

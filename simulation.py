@@ -161,11 +161,12 @@ if __name__ == "__main__":
         print("\033[97m1. KitNET\033[0m")
         print("\033[97m2. Architecture Benchmarks\033[0m")
         print("\033[97m3. KitNET Benchmark\033[0m")
-        print("\033[97m3. Quit\033[0m")
-        user_choice = input("\n\033[97mInsert your choice [\033[90m1-4\033[97m] : \033[0m")
+        print("\033[97m4. Merge Metrics\033[0m")
+        print("\033[97m5. Quit\033[0m")
+        user_choice = input("\n\033[97mInsert your choice [\033[90m1-5\033[97m] : \033[0m")
         
         # Validates the user input
-        if user_choice not in ["1", "2", "3", "4"]:
+        if user_choice not in ["1", "2", "3", "4", "5"]:
             print("\033[91mInvalid choice 🔥\033[0m\n\033[90mEnter a valid number in the range\n\033[0m")
             continue
         
@@ -188,6 +189,10 @@ if __name__ == "__main__":
             # Evaluates the performances of the original version of KitNET
             tools.kitBenchmark(predictions, true_labels)
         
-        # Quits the program
+        # Merges the metrics from multiple CSV files and generates combined plots
         elif user_choice == "4":
+            tools.merge_metrics()
+        
+        # Quits the program
+        elif user_choice == "5":
             exit()
