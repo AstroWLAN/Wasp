@@ -1,10 +1,11 @@
 import math
 import numpy as np
 
-# ‼️ This implementation of AfterImage DOES NOT use the square root -> math.sqrt() has been removed from the code
+# Global parameter to control whether to use square root in calculations
+USE_SQRT = False
 
 class incStat:
-    def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False):  # timestamp is creation time
+    def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False, use_sqrt=True):  # timestamp is creation time
         self.ID = ID
         self.CF1 = 0  # linear sum
         self.CF2 = 0  # sum of squares
@@ -16,6 +17,7 @@ class incStat:
         self.cur_var = np.nan
         self.cur_std = np.nan
         self.covs = [] # a list of incStat_covs (references) with relate to this incStat
+        self.use_sqrt = use_sqrt  # Controls whether to use square root in calculations
 
     def insert(self, v, t=0):  # v is a scalar, t is v's arrival the timestamp
         if self.isTypeDiff:
@@ -65,7 +67,7 @@ class incStat:
 
     def std(self):
         if math.isnan(self.cur_std):  # calculate it only once when necessary
-            self.cur_std = self.var()  # Removes the sqrt -> returns variance directly
+            self.cur_std = math.sqrt(self.var()) if self.use_sqrt else self.var()
         return self.cur_std
 
     def cov(self,ID2):
@@ -90,14 +92,13 @@ class incStat:
         A = self.var()**2
         for incS in other_incStats:
             A += incS.var()**2
-        return A  # Removes the sqrt
+        return math.sqrt(A) if self.use_sqrt else A
 
     def magnitude(self, other_incStats):  # the magnitude of a set of incStats
         A = math.pow(self.mean(), 2)
         for incS in other_incStats:
             A += math.pow(incS.mean(), 2)
-        # Removes the sqrt
-        return A
+        return math.sqrt(A) if self.use_sqrt else A
 
     #calculates and pulls all stats on this stream
     def allstats_1D(self):
@@ -252,10 +253,11 @@ class incStat_cov:
 
 class incStatDB:
     # default_lambda: use this as the lambda for all streams. If not specified, then you must supply a Lambda with every query.
-    def __init__(self,limit=np.inf,default_lambda=np.nan):
+    def __init__(self,limit=np.inf,default_lambda=np.nan,use_sqrt=True):
         self.HT = dict()
         self.limit = limit
         self.df_lambda = default_lambda
+        self.use_sqrt = use_sqrt
 
     def get_lambda(self,Lambda):
         if not np.isnan(self.df_lambda):
@@ -367,8 +369,8 @@ class incStatDB:
         for incS in incStats:
             rad += incS.var()
             mag += incS.mean()**2
-        # Removes the sqrt
-        return [np.rad,np.mag]
+
+        return [np.sqrt(rad),np.sqrt(mag)]
 
     # Updates and then pulls current 1D stats from the given ID. Automatically registers previously unknown stream IDs
     def update_get_1D_Stats(self, ID,t,v,Lambda=1,isTypeDiff=False):  # weight, mean, std

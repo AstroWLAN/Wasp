@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Plots the distribution of benign and malicious packets in a dataset
-def plotter():
+def composition():
     # PARAMETERS 
     desktop = str(Path.home() / "Desktop")
     col_labels = 0  
@@ -12,7 +12,7 @@ def plotter():
     # Gets the user inputs and reads the .csv file
     csv = input("\033[37mFile [ \033[90m.csv \033[37m] : \033[0m")
     attack = input("Attack : ")
-    training = int(input("\033[37mTraining packets [ \033[90minteger\033[37m ] : \033[0m"))
+    training = int(input("\033[37mTraining packets [ \033[90mremoves the first N packets used for training\033[37m ] : \033[0m"))
     
     try:
         # Reads the .csv file and removes the first 'training' packets
@@ -49,13 +49,13 @@ def plotter():
         plt.tight_layout()
         
         # Saves the plot to the desktop
-        plt.savefig(os.path.join(desktop, f'{attack.lower()}_distribution.png'), dpi=384)
-        print(f"\033[90mPlot saved to desktop as '{attack.lower()}_distribution.png'\033[0m\n\033[92mDone\033[0m")
+        plt.savefig(os.path.join(desktop, f'{attack}_composition.png'), dpi=384)
+        print(f"\033[90mPlot saved to desktop as '{attack}_composition.png'\033[0m\n\033[92mDone\033[0m")
         
     except Exception as error:
         print(f"\033[91mSomething went wrong 🔥\033[0m\033[90m\n{str(error)}\n\033[0m")
 
 # MAIN
 if __name__ == "__main__":
-    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mDataset plotter\n\033[0m")
-    plotter()  
+    print("\n\033[1;37mResearchKit 🔎\033[0m\n\033[90mDataset composition\n\033[0m")
+    composition()  
