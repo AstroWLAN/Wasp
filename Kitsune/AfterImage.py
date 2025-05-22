@@ -2,7 +2,7 @@ import math
 import numpy as np
 
 # Global parameter to control whether to use square root in calculations
-USE_SQRT = False
+USE_SQRT = True
 
 class incStat:
     def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False, use_sqrt=True):  # timestamp is creation time
@@ -370,7 +370,7 @@ class incStatDB:
             rad += incS.var()
             mag += incS.mean()**2
 
-        return [np.sqrt(rad),np.sqrt(mag)]
+        return [np.sqrt(rad) if self.use_sqrt else rad, np.sqrt(mag) if self.use_sqrt else mag]
 
     # Updates and then pulls current 1D stats from the given ID. Automatically registers previously unknown stream IDs
     def update_get_1D_Stats(self, ID,t,v,Lambda=1,isTypeDiff=False):  # weight, mean, std
