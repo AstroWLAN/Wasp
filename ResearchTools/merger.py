@@ -18,6 +18,9 @@ def csv_merge(destination_folder=None):
             print("\033[91mNo CSV files found in the folder\033[0m")
             return
 
+        # Required fields for flowID generation
+        required_fields = ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'proto']
+
         # Read headers of the first CSV file only
         first_file = csv_files[0]
         first_file_path = os.path.join(folder, first_file)
@@ -26,6 +29,12 @@ def csv_merge(destination_folder=None):
         else:
             first_df_head = pd.read_csv(first_file_path, header=None, nrows=0, low_memory=False)
         unique_columns = list(first_df_head.columns)
+        
+        # Check if all required fields are present in the first file
+        missing_required = [field for field in required_fields if field not in unique_columns]
+        if missing_required:
+            raise Exception(f"Required fields missing in {first_file}: {', '.join(missing_required)}")
+        
         # Print numeric list of columns
         print("\033[1;37m\nHeader Arguments 📋\033[0m\n\033[90mExtracted from the first file in alphabetical order\n\033[0m")
         cols_per_line = 3
@@ -47,17 +56,32 @@ def csv_merge(destination_folder=None):
                 df = pd.read_csv(file_path, header=0, low_memory=False)
             else:
                 df = pd.read_csv(file_path, header=None, low_memory=False)
+            
+            # Check if all required fields are present in this file
+            missing_required = [field for field in required_fields if field not in df.columns]
+            if missing_required:
+                raise Exception(f"Required fields missing in {file}: {', '.join(missing_required)}")
+            
             # Print file name in white, then newline and print file info in gray
             idx = csv_files.index(file) + 1
             total = len(csv_files)
             print(f"\033[37m[\033[1;37m {idx}\033[0m \033[90mof {total} \033[0m\033[37m]\033[1;37m {file}\033[0m")
             print(f"\033[90mRows [{df.shape[0]}]\n\033[0m")
+            
+            # Create flowID column by concatenating required fields
+            df['flowID'] = df['src_ip'].astype(str) + '_' + df['src_port'].astype(str) + '_' + df['dst_ip'].astype(str) + '_' + df['dst_port'].astype(str) + '_' + df['proto'].astype(str)
+            
             # For missing columns, add them as blank and print in requested format
             missing_cols = [col for col in selected_columns if col not in df.columns]
             if missing_cols:
                 print(f"\033[1;33mMissing ⚠️\n\033[0m\033[37m: {', '.join(str(col) for col in missing_cols)}\033[0m")
             for col in missing_cols:
                 df[col] = ""
+            
+            # Add flowID to selected columns if not already included
+            if 'flowID' not in selected_columns:
+                selected_columns = ['flowID'] + selected_columns
+            
             # Only keep selected columns, in the order specified
             df = df[selected_columns]
             dataframes.append(df)
