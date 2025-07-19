@@ -1,286 +1,208 @@
+# Merger.py 
+# Merge multiple .csv or .pcap files from a folder into a single file 
+# This script was created to adapt popular datasets such as TON-IoT to KitNET, but it can be easily adapted to other datasets
+# Author : Dario Crippa [ AstroWLAN ]
+
+# IMPORTS
 import os
-import sys
+import shutil
+import argparse
 import subprocess
 import pandas as pd
-import argparse
 
-# Merges multiple CSV files from a folder into a single CSV file
-def csv_merge(destination_folder=None):
+# Merge all .csv files in the specified folder into a single consolidated .csv file
+# Add a flowID column to the output file header
+# Note: CSV files must have headers containing the required field names
+def csv_merging(input_folder=None, destination_folder=None):
     try:
-        # Get folder containing CSV files
-        folder = input("\033[37mFolder containing CSV files [ \033[90mpath\033[37m ] : \033[0m")
+        # Retrieve the input folder if it has not been provided as a parameter
+        if input_folder is None:
+            folder = input("\033[37mFolder containing .csv files [ \033[90mpath\033[37m ] : \033[0m")
+        else:
+            folder = input_folder
+        
+        # Name of the output .csv file
         output_name = input("\033[37mOutput file name [ \033[90mwithout .csv\033[37m ] : \033[0m")
-        header = input("\033[37mCSV files have header? [ \033[90my or n\033[37m ] : \033[0m").lower()
 
-        # List all CSV files in the folder, sorted alphabetically
-        csv_files = sorted([f for f in os.listdir(folder) if f.endswith('.csv')])
-        if not csv_files:
-            print("\033[91mNo CSV files found in the folder\033[0m")
+        # List all .csv files in the folder and sort them alphabetically 
+        # TIP : use zero-padded numbering to ensure proper sorting
+        files = sorted([f for f in os.listdir(folder) if f.endswith('.csv')])
+        if not files:
+            print(f"\033[91mError 🔥\n\033[90mThere are no .csv files in the folder\n\033[0m")
             return
 
-        # Required fields for flowID generation
+        # Required fields for the flowID generation
         required_fields = ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'proto']
 
-        # Read headers of the first CSV file only
-        first_file = csv_files[0]
-        first_file_path = os.path.join(folder, first_file)
-        if header == 'y':
-            first_df_head = pd.read_csv(first_file_path, header=0, nrows=0, low_memory=False)
-        else:
-            first_df_head = pd.read_csv(first_file_path, header=None, nrows=0, low_memory=False)
-        unique_columns = list(first_df_head.columns)
-        
-        # Check if all required fields are present in the first file
-        missing_required = [field for field in required_fields if field not in unique_columns]
-        if missing_required:
-            raise Exception(f"Required fields missing in {first_file}: {', '.join(missing_required)}")
-        
-        # Print numeric list of columns
-        print("\033[1;37m\nHeader Arguments 📋\033[0m\n\033[90mExtracted from the first file in alphabetical order\n\033[0m")
-        cols_per_line = 3
-        col_width = 30  # Adjust as needed for best fit
-        for i in range(0, len(unique_columns), cols_per_line):
-            line = "".join([f"{idx+1:02d}: {str(col):<{col_width}}" for idx, col in enumerate(unique_columns[i:i+cols_per_line], i)])
-            print(f"  {line}")
-        # Ask user for columns to include
-        selected = input("\033[37m\nArguments selection [ \033[90mlist them separated with a blank space\033[37m ] : \033[0m")
-        selected_indices = [int(x)-1 for x in selected.strip().split() if x.isdigit() and 0 < int(x) <= len(unique_columns)]
-        selected_columns = [unique_columns[i] for i in selected_indices]
-        print(f"\033[90mSelected columns {selected_columns}\033[0m")
-        print("\033[90mMerging CSV files...\n\033[0m")
-        # Read and concatenate all CSV files, only with selected columns
+        # Read and concatenate all .csv files
         dataframes = []
-        for file in csv_files:
+        expected_rows = 0  
+        print("\033[90mReading the .csv files...\n\033[0m")
+        
+        for file in files:
             file_path = os.path.join(folder, file)
-            if header == 'y':
+            try:
+                # The .csv files must have headers that contain the required field names
                 df = pd.read_csv(file_path, header=0, low_memory=False)
-            else:
-                df = pd.read_csv(file_path, header=None, low_memory=False)
-            
-            # Check if all required fields are present in this file
-            missing_required = [field for field in required_fields if field not in df.columns]
-            if missing_required:
-                raise Exception(f"Required fields missing in {file}: {', '.join(missing_required)}")
-            
-            # Print file name in white, then newline and print file info in gray
-            idx = csv_files.index(file) + 1
-            total = len(csv_files)
-            print(f"\033[37m[\033[1;37m {idx}\033[0m \033[90mof {total} \033[0m\033[37m]\033[1;37m {file}\033[0m")
-            print(f"\033[90mRows [{df.shape[0]}]\n\033[0m")
-            
-            # Create flowID column by concatenating required fields
-            df['flowID'] = df['src_ip'].astype(str) + '_' + df['src_port'].astype(str) + '_' + df['dst_ip'].astype(str) + '_' + df['dst_port'].astype(str) + '_' + df['proto'].astype(str)
-            
-            # For missing columns, add them as blank and print in requested format
-            missing_cols = [col for col in selected_columns if col not in df.columns]
-            if missing_cols:
-                print(f"\033[1;33mMissing ⚠️\n\033[0m\033[37m: {', '.join(str(col) for col in missing_cols)}\033[0m")
-            for col in missing_cols:
-                df[col] = ""
-            
-            # Add flowID to selected columns if not already included
-            if 'flowID' not in selected_columns:
-                selected_columns = ['flowID'] + selected_columns
-            
-            # Only keep selected columns, in the order specified
-            df = df[selected_columns]
-            dataframes.append(df)
+                
+                # Check if the required fields are present in the current file
+                missing_required = [field for field in required_fields if field not in df.columns]
+                if missing_required:
+                    raise Exception(f"One or more required fields are missing in {file}")
+                
+                # Log some information about the current file
+                print(f"∗ \033[1;37m{files.index(file) + 1}\033[0;90m of {len(files)}\033[37m \033[1;37m {file}\033[0m")
+                print(f"\033[90mThis file contains {df.shape[0]} rows\n\033[0m")
+                
+                # Add the current file's row count to the total expected rows
+                expected_rows += df.shape[0]
+                
+                # Create the flowID column by concatenating the required fields
+                df['flowID'] = df['src_ip'].astype(str) + '_' + df['src_port'].astype(str) + '_' + df['dst_ip'].astype(str) + '_' + df['dst_port'].astype(str) + '_' + df['proto'].astype(str)
+                
+                dataframes.append(df)
+                
+            except Exception as error:
+                raise Exception(f"An error occurred while processing the file {file} : {str(error)}")
+
+        # Concatenate all dataframes into a single dataframe
+        print("\033[90mConcatenating the .csv files...\033[0m")
         merged_df = pd.concat(dataframes, ignore_index=True)
 
-        # Determine output folder
+        # Output the merged .csv file
         if destination_folder:
             os.makedirs(destination_folder, exist_ok=True)
             output_file = os.path.join(destination_folder, f"{output_name}.csv")
         else:
             output_file = f"{output_name}.csv"
 
-        merged_df.to_csv(output_file, index=False, header=(header == 'y'))
-        print(f"\033[1;92mDone\033[0m\n\033[90mMerged file saved as {output_file}\033[0m")
-        # Print merged file info
-        print(f"\033[90mRows [{merged_df.shape[0]}]\nColumns {list(merged_df.columns)}\n\033[0m")
-        
-    except Exception as error:
-        print(f"\033[91mSomething went wrong 🔥\033[0m\033[90m\n{str(error)}\n\033[0m")
+        print("\033[90mSaving the dataframe as a .csv file...\033[0m")
+        merged_df.to_csv(output_file, index=False, header=True)
 
-# Merges multiple PCAP files from a folder into a single PCAP file
-def pcap_merge(destination_folder=None):
+        # Log the output file information
+        print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\033[0m")
+        if expected_rows != merged_df.shape[0]:
+            print(f"\033[93mWarning ⚠️\n\033[90mThe final size of the merged .csv file is different from the expected size\n\033[0m")
+        else:
+            print(f"\033[90mThe size of the merged .csv file is the same as the expected one of {expected_rows} rows\033[0m")
+    # Exception handling : log the error in the console 
+    # Exceptions propagete from the inner to the outer level
+    except Exception as error:
+        print(f"\033[91mError 🔥\n\033[90m{str(error)}\n\033[0m")
+
+# Merge all .pcap files in the specified folder into a single consolidated .pcap file using mergecap
+# It performs some sanitization to remove corrupted, truncated or otherwise invalid packets using editcap
+def pcap_merging(input_folder=None, destination_folder=None):
     try:
-        # Get folder containing PCAP files
-        folder = input("\033[37mFolder containing PCAP files [ \033[90mpath\033[37m ] : \033[0m")
+        # Retrieve the input folder if it has not been provided as a parameter
+        if input_folder is None:
+            folder = input("\033[37mFolder containing .pcap files [ \033[90mpath\033[37m ] : \033[0m")
+        else:
+            folder = input_folder
+        
+        # Name of the output .pcap file
         output_name = input("\033[37mOutput file name [ \033[90mwithout .pcap\033[37m ] : \033[0m")
 
-        # List all PCAP files in the folder, sorted alphabetically
+        # List all .pcap files in the folder and sort them alphabetically 
+        # TIP : use zero-padded numbering to ensure proper sorting
         pcap_files = sorted([f for f in os.listdir(folder) if f.endswith('.pcap') or f.endswith('.pcapng')])
         if not pcap_files:
-            print("\033[91mNo PCAP files found in the folder\033[0m")
+            print(f"\033[91mError 🔥\n\033[90mThere are no .pcap files in the folder\n\033[0m")
             return
 
-        # Check if mergecap is available
+        # Ensure that mergecap is available in the system
         try:
             subprocess.run(['mergecap', '--version'], capture_output=True, check=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("\033[91mmergecap not found. Please install Wireshark/tshark to use PCAP merging functionality.\033[0m")
-            print("\033[90mYou can install it with: sudo apt-get install wireshark-common\033[0m")
+            print(f"\033[91mError 🔥\n\033[90mMergecap not found\nYou can install it with: sudo apt-get install wireshark-common\n\033[0m")
             return
 
-        # Pre-process files to remove corrupted packets
-        print("\033[90mPre-processing files to remove corrupted packets...\n\033[0m")
-        cleaned_files = []
-        temp_dir = os.path.join(folder, "temp_cleaned")
+        # Sanitize the .pcap files to remove corrupted or truncated packets
+        print("\033[90mSanitizing the .pcap files...\n\033[0m")
+        sanitized_pcap = []
+        temp_dir = os.path.join(folder, "sanitized_temp_folder")
         os.makedirs(temp_dir, exist_ok=True)
         
+        # Sanitize the files using editcap
         for idx, file in enumerate(pcap_files, 1):
             file_path = os.path.join(folder, file)
             cleaned_file_path = os.path.join(temp_dir, f"cleaned_{file}")
-            print(f"\033[37m[\033[1;37m {idx}\033[0m \033[90mof {len(pcap_files)} \033[0m\033[37m]\033[1;37m {file}\033[0m")
-            
-            # Use editcap to clean the file (remove corrupted packets)
+            print(f"∗ \033[1;37m{idx}\033[0;90m of {len(pcap_files)}\033[37m \033[1;37m {file}\033[0m")
             try:
-                editcap_result = subprocess.run(['editcap', '-F', 'pcap', file_path, cleaned_file_path], 
-                                              capture_output=True, text=True)
+                editcap_result = subprocess.run(['editcap', '-F', 'pcap', file_path, cleaned_file_path], capture_output=True, text=True)
                 if editcap_result.returncode == 0:
-                    cleaned_files.append(cleaned_file_path)
-                    print(f"\033[90m  Cleaned successfully\033[0m")
+                    sanitized_pcap.append(cleaned_file_path)
+                    print(f"\033[90mThis .pcap file has been sanitized\n\033[0m")
                 else:
-                    print(f"\033[90m  Using original file (cleaning failed)\033[0m")
+                    print(f"\033[90mCleaning failed : using the original file\n\033[0m")
                     if editcap_result.stderr:
-                        print(f"\033[90m    Error: {editcap_result.stderr.strip()}\033[0m")
-                    cleaned_files.append(file_path)
+                        print(f"\033[91mError 🔥\n\033[90m{editcap_result.stderr.strip()}\n\033[0m")
+                    sanitized_pcap.append(file_path)
+            # FileNotFoundError is the specific exception raised when Python cannot find the executable command in the system's PATH 
             except FileNotFoundError:
-                print(f"\033[90m  Using original file (editcap not found)\033[0m")
-                cleaned_files.append(file_path)
+                print(f"\033[90mUsing the original file since editcap has not been found\033[0m")
+                sanitized_pcap.append(file_path)
         
-        print("\033[90mMerging PCAP files...\n\033[0m")
-        
-        # Determine output folder and file
+        # Output the merged .pcap file
         if destination_folder:
             os.makedirs(destination_folder, exist_ok=True)
             output_file = os.path.join(destination_folder, f"{output_name}.pcap")
         else:
             output_file = f"{output_name}.pcap"
         
-        # Use cleaned files for merging
-        input_files = cleaned_files
+        # Use the sanitized files for merging
+        input_files = sanitized_pcap
         
-        # Count packets in cleaned files
-        total_packets = 0
-        file_packet_counts = {}
-        
-        print("\033[90mAnalyzing cleaned files...\n\033[0m")
-        for idx, file_path in enumerate(cleaned_files, 1):
-            file_name = os.path.basename(file_path)
-            print(f"\033[37m[\033[1;37m {idx}\033[0m \033[90mof {len(cleaned_files)} \033[0m\033[37m]\033[1;37m {file_name}\033[0m")
-            
-            # Count packets using capinfos
-            try:
-                capinfos_result = subprocess.run(['capinfos', '-c', file_path], 
-                                               capture_output=True, text=True, check=True)
-                # Parse the output: "Number of packets: 8240 k" -> extract "8240 k"
-                output_line = capinfos_result.stdout.strip().split('\n')[-1]  # Get last line
-                packet_info = output_line.split(':')[1].strip()  # Get "8240 k"
-                
-                # Handle different formats (e.g., "8240 k", "1234", "1.5 M")
-                if 'k' in packet_info.lower():
-                    packet_count = int(float(packet_info.lower().replace('k', '')) * 1000)
-                elif 'm' in packet_info.lower():
-                    packet_count = int(float(packet_info.lower().replace('m', '')) * 1000000)
-                else:
-                    packet_count = int(packet_info)
-                
-                file_packet_counts[file_name] = packet_count
-                total_packets += packet_count
-                print(f"\033[90mPackets [{packet_count:,}]\n\033[0m")
-            except (subprocess.CalledProcessError, ValueError, IndexError) as e:
-                print(f"\033[90mPackets [Unable to count]\n\033[0m")
-                file_packet_counts[file_name] = 0
-        
-        print(f"\033[90m\nTotal packets before merge: {total_packets:,}\033[0m")
-        print("\033[90mMerging PCAP files...\n\033[0m")
-        
-        # Use mergecap to merge all files at once
+        print("\033[90mMerging PCAP files...\033[0m")
+        # Use mergecap to merge all the .pcap files at once
         merge_cmd = ['mergecap', '-w', output_file] + input_files
         result = subprocess.run(merge_cmd, capture_output=True, text=True)
-        
-        # Check if mergecap completed successfully
         if result.returncode == 0:
-            print(f"\033[1;92mDone\033[0m\n\033[90mMerged file saved as {output_file}\033[0m")
-            print(f"\033[90mTotal files merged: {len(pcap_files)}\033[0m")
-            
-            # Count packets in merged file
-            try:
-                capinfos_result = subprocess.run(['capinfos', '-c', output_file], 
-                                               capture_output=True, text=True, check=True)
-                # Parse the output: "Number of packets: 8240 k" -> extract "8240 k"
-                output_line = capinfos_result.stdout.strip().split('\n')[-1]  # Get last line
-                packet_info = output_line.split(':')[1].strip()  # Get "8240 k"
-                
-                # Handle different formats (e.g., "8240 k", "1234", "1.5 M")
-                if 'k' in packet_info.lower():
-                    merged_packet_count = int(float(packet_info.lower().replace('k', '')) * 1000)
-                elif 'm' in packet_info.lower():
-                    merged_packet_count = int(float(packet_info.lower().replace('m', '')) * 1000000)
-                else:
-                    merged_packet_count = int(packet_info)
-                
-                print(f"\033[90mMerged file packets: {merged_packet_count:,}\033[0m")
-                
-                # Show packet loss if any
-                if merged_packet_count != total_packets:
-                    packet_loss = total_packets - merged_packet_count
-                    print(f"\033[93mPacket loss: {packet_loss:,} packets\033[0m")
-                else:
-                    print(f"\033[90mNo packet loss detected\033[0m")
-                    
-            except (subprocess.CalledProcessError, ValueError, IndexError):
-                print(f"\033[90mUnable to count packets in merged file\033[0m")
-            
-            print("\033[0m")
+            # Log the output file information
+            print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\033[0m")   
         else:
-            # Handle warnings about truncated files
+            # Handle warnings
             if "appears to have been cut short" in result.stderr or "truncated" in result.stderr.lower():
-                print(f"\033[93m\n\033[1mWarning\033[0m\033[93m ⚠️\n\033[0m\033[90m Some PCAP files appear to be truncated, but merging completed\n\033[0m")
-                print(f"\033[90mMerged file saved as {output_file}\033[0m")
-                if result.stderr:
-                    print(f"\033\n[90m{result.stderr.strip()}\033\n[0m")
+                print(f"\033[93mWarning ⚠️\n\033[90mSome packets appear to be truncated or corrupted but merging step has been completed\n\033[0m")
+                print(f"\033[90mMerged file saved as {output_file}\n\033[0m")
             else:
-                # Handle other errors
-                print(f"\033[91mError during merge:\033[0m")
+                # Handle catastrophic failures
+                print(f"\033[91mError 🔥\n\033[90mFailed to merge .pcap files\n\033[0m")
                 if result.stderr:
                     print(f"\033[90m{result.stderr.strip()}\033[0m")
-                if result.stdout:
-                    print(f"\033[90m{result.stdout.strip()}\033[0m")
         
-        # Clean up temporary directory
+        # Clean up the temporary folder containing the sanitized files
         try:
-            import shutil
             shutil.rmtree(temp_dir)
-            print(f"\033[90mCleaned up temporary files\033[0m")
         except:
             pass
         
+    # Exception handling : log the error in the console
     except Exception as error:
-        print(f"\033[91mSomething went wrong 🔥\033[0m\033[90m\n{str(error)}\n\033[0m")
+        print(f"\033[91mError 🔥\n\033[90m{str(error)}\n\033[0m")
 
-# Main merger function with menu
-def merger(destination_folder=None):
-    print("1. PCAP files")
-    print("2. CSV files")
+# Menu to choose the merging method
+def merger(input_folder=None, destination_folder=None):
+    print("1. Merge .pcap files")
+    print("2. Merge .csv files")
     
+    # User choice
     choice = input("\033[37mSelect option [ \033[90m1 or 2\033[37m ] : \033[0m").strip()
     
     if choice == '1':
-        print("\033[1;37m\nPCAPs Merge 🦈\033[0m\033[90m\nUsing mergecap by The Wireshark Team\n\033[0m")
-        pcap_merge(destination_folder)
+        print("\033[1;37m\nMerge .pcap files 🦈\n\033[0;90mBuilt on top of mergecap by The Wireshark Team\n\033[0m")
+        pcap_merging(input_folder, destination_folder)
     elif choice == '2':
-        print("\033[1;37m\nCSVs Merge 📊\033[0m\033[90m\n\033[0m")
-        csv_merge(destination_folder)
+        print("\033[1;37m\nMerge .csv files 📄\n\033[0m")
+        csv_merging(input_folder, destination_folder)
     else:
         print("\033[91mInvalid option. Please select 1 or 2.\033[0m")
 
 # MAIN
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Merge multiple CSV or PCAP files from a folder into a single file")
+    parser = argparse.ArgumentParser(description="Merge multiple files from a folder into a single file")
+    parser.add_argument('-i', '--input', type=str, help='Input folder containing the files to merge')
     parser.add_argument('-d', '--destination', type=str, help='Destination folder for the merged file')
     args = parser.parse_args()
-    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mFile Merger\n\033[0m")
-    merger(destination_folder=args.destination)
+    print("\n\033[1;37mResearch Kit 🔦\n\033[0;90mFile Merger\n\033[0m")
+    merger(input_folder=args.input, destination_folder=args.destination)
