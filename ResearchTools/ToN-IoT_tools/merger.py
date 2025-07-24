@@ -83,7 +83,7 @@ def csv_merging(input_folder=None, destination_folder=None):
         merged_df.to_csv(output_file, index=False, header=True)
 
         # Log the output file information
-        print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\033[0m")
+        print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\n\033[0m")
         if expected_rows != merged_df.shape[0]:
             print(f"\033[1;93mWarning ⚠️\n\033[0;90mThe final size of the merged .csv file is different from the expected size\n\033[0m")
         else:
@@ -156,13 +156,13 @@ def pcap_merging(input_folder=None, destination_folder=None):
         # Use the sanitized files for merging
         input_files = sanitized_pcap
         
-        print("\033[90mMerging PCAP files...\033[0m")
+        print("\033[90mMerging the .pcap files...\033[0m")
         # Use mergecap to merge all the .pcap files at once
         merge_cmd = ['mergecap', '-w', output_file] + input_files
         result = subprocess.run(merge_cmd, capture_output=True, text=True)
         if result.returncode == 0:
             # Log the output file information
-            print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\033[0m")   
+            print(f"\033[1;92mDone\033[0m\n\033[0;90mMerged file saved as {output_file}\n\033[0m")   
         else:
             # Handle warnings
             if "appears to have been cut short" in result.stderr or "truncated" in result.stderr.lower():
