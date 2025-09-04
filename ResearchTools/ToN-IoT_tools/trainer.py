@@ -2,21 +2,21 @@
 # Sample N packets from a .pcap file for training purposes
 # Author : Dario Crippa [ AstroWLAN ]
 
+# IMPORTS
 import os
 import argparse
 import numpy as np
 from scapy.utils import PcapReader, PcapWriter
 
-
-
+# MAIN
 def main():
     parser = argparse.ArgumentParser(description="Sample N packets from a .pcap file, preserving order.")
-    parser.add_argument('-i', '--input', type=str, required=True, help='Input .pcap file')
-    parser.add_argument('-o', '--output', type=str, required=True, help='Output .pcap file')
-    parser.add_argument('-n', '--num', type=int, required=True, help='Number of packets to sample')
+    parser.add_argument('-i', type=str, required=True, help='Input .pcap file')
+    parser.add_argument('-o', type=str, required=True, help='Output .pcap file')
+    parser.add_argument('-n', type=int, default=55000, help='Number of packets to sample - default: 55000')
     args = parser.parse_args()
 
-    # Check the input file
+    # Input file verification
     if not os.path.isfile(args.input):
         print(f"\033[1;91mError 🔥\n\033[0;90mInput file does not exist: {args.input}\n\033[0m")
         exit(1)
@@ -24,7 +24,7 @@ def main():
         print(f"\033[1;91mError 🔥\n\033[0;90mInput file must be a .pcap file\n\033[0m")
         exit(1)
 
-    print(f"\n\033[1;37mPCAP Sampler\033[0m\n\033[0;90mSampling {args.num} packets from {args.input}\033[0m")
+    print(f"\n\033[1;37mTON-IoT Kit 📀\n\033[0;90mCollect {args.num} packets for training purposes\n\033[0m")
 
     # Read all packets and their timestamps
     packets = []

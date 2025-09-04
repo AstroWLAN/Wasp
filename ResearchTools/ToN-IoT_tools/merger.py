@@ -1,6 +1,6 @@
 # merger.py 
-# Merge multiple .csv or .pcap files from a folder into a single file 
-# Target : TON-IoT dataset from https://research.unsw.edu.au/projects/toniot-datasets
+# Merge multiple .csv or .pcap files from a given folder into a single file 
+# Target : TON-IoT dataset https://research.unsw.edu.au/projects/toniot-datasets
 # Author : Dario Crippa [ AstroWLAN ]
 
 # IMPORTS
@@ -10,12 +10,16 @@ import argparse
 import subprocess
 import pandas as pd
 
-# Merge all .csv files in the specified folder into a single consolidated .csv file
-# Add a flowID column to the output file header
-# Note: CSV files must have headers containing the required field names
+# Merge multiple .csv files into a single one and insert a flowID column
+# .csv files must have headers containing the required field names -> this method adopt a fail-fast approach
 def csv_merging(input_folder=None, destination_folder=None):
+
+    # PARAMETERS
+    # Required fields for the flowID generation and output
+    required_fields = ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'proto', 'ts', 'label']
+
     try:
-        # Retrieve the input folder if it has not been provided as a parameter
+        # Retrieve the input folder path if it has not been provided as a command line argument
         if input_folder is None:
             folder = input("\033[37mFolder containing .csv files [ \033[90mpath\033[37m ] : \033[0m")
         else:
@@ -25,14 +29,11 @@ def csv_merging(input_folder=None, destination_folder=None):
         output_name = input("\033[37mOutput file name [ \033[90mwithout .csv\033[37m ] : \033[0m")
 
         # List all .csv files in the folder and sort them alphabetically 
-        # TIP : use zero-padded numbering to ensure proper sorting
+        # TIP : use zero-padded numbering to ensure proper sorting [ 01, 02, 03, ... ]
         files = sorted([f for f in os.listdir(folder) if f.endswith('.csv')])
         if not files:
             print(f"\033[1;91mError 🔥\n\033[0;90mThere are no .csv files in the folder\n\033[0m")
             return
-
-        # Required fields for the flowID generation and output
-        required_fields = ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'proto', 'ts', 'label']
 
         # Read and concatenate all .csv files
         dataframes = []
@@ -54,15 +55,14 @@ def csv_merging(input_folder=None, destination_folder=None):
                 print(f"∗ \033[1;37m{files.index(file) + 1}\033[0;90m of {len(files)}\033[37m \033[1;37m {file}\033[0m")
                 print(f"\033[90mThis file contains {df.shape[0]} rows\n\033[0m")
                 
-                # Add the current file's row count to the total expected rows
+                # Add the current file's row count to the total expected rows in the merged file
                 expected_rows += df.shape[0]
                 
-                # Create the flowID column by concatenating the required fields
+                # Calculate the flowID column by concatenating the required fields
                 df['flowID'] = df['src_ip'].astype(str) + '_' + df['src_port'].astype(str) + '_' + df['dst_ip'].astype(str) + '_' + df['dst_port'].astype(str) + '_' + df['proto'].astype(str).str.lower()
                 
-                # Select only the required output fields
+                # Filter the dataframe in order to keep only the required output fields
                 df_filtered = df[['flowID', 'label', 'ts', 'proto', 'src_ip', 'src_port', 'dst_ip', 'dst_port']]
-                
                 dataframes.append(df_filtered)
                 
             except Exception as error:
@@ -85,9 +85,10 @@ def csv_merging(input_folder=None, destination_folder=None):
         # Log the output file information
         print(f"\033[1;92mDone\033[0m\n\033[0;37mMerged file saved as {output_file}\n\033[0m")
         if expected_rows != merged_df.shape[0]:
-            print(f"\033[1;93mWarning ⚠️\n\033[0;90mThe final size of the merged .csv file is different from the expected size\n\033[0m")
+            print(f"\033[1;93mWarning ⚠️\n\033[0;90mThe final size of the merged .csv file differs from the expected one\n\033[0m")
         else:
-            print(f"\033[90mThe size of the merged .csv file is the same as the expected one of {expected_rows} rows\033[0m")
+            print(f"\033[90mThe size of the merged .csv file is the same as the expected one [ {expected_rows} rows ]\033[0m")
+
     # Exception handling : log the error in the console 
     # Exceptions propagete from the inner to the outer level
     except Exception as error:
@@ -184,7 +185,7 @@ def pcap_merging(input_folder=None, destination_folder=None):
     except Exception as error:
         print(f"\033[1;91mError 🔥\n\033[0;90m{str(error)}\n\033[0m")
 
-# Choose the merging method
+# Choose what should be merged
 def merger(input_folder=None, destination_folder=None):
     print("1. Merge .pcap files")
     print("2. Merge .csv files")
@@ -204,8 +205,8 @@ def merger(input_folder=None, destination_folder=None):
 # MAIN
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge multiple files from a folder into a single file")
-    parser.add_argument('-i', '--input', type=str, help='Input folder containing the files to merge')
-    parser.add_argument('-d', '--destination', type=str, help='Destination folder for the merged file')
+    parser.add_argument('-i', type=str, help='Input folder')
+    parser.add_argument('-d', type=str, help='Destination folder')
     args = parser.parse_args()
     print("\n\033[1;37mResearch Kit 🔦\n\033[0;90mToN-IoT files merger\n\033[0m")
     merger(input_folder=args.input, destination_folder=args.destination)
