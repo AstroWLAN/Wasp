@@ -28,11 +28,11 @@ class FE:
         
         # Loads the packets
         if self.path.endswith(('.pcap', '.pcapng')):
-            print("\033[90mLoading the traffic\033[0m")
+            print("\033[90mLoading the traffic...\033[0m")
             self.packets = rdpcap(self.path)
             self.packets_limit = min(self.packets_limit, len(self.packets))
-            print(f"\033[90mLoaded {len(self.packets)} packets\033[0m")
-            print("\033[92mDone\n\033[0m")
+            print("\033[92mDone\033[0m")
+            print(f"\033[90m{len(self.packets)} packets loaded\033[0m")
         else:
             raise ValueError(f"\033[91mFile {self.path} is not a pcap or pcapng file 🔥\033[0m")
 
