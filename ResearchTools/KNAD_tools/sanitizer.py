@@ -12,9 +12,9 @@ def sanitizer():
         print("\033[90mSanitizing the ground-truth labels source file...\033[0m")
         # Reads the .csv file
         if header == 'y':
-            original_dataframe = pd.read_csv(csv, header=0)
+            original_dataframe = pd.read_csv(csv, header=0, low_memory=False)
         else:
-            original_dataframe = pd.read_csv(csv, header=None)
+            original_dataframe = pd.read_csv(csv, header=None, low_memory=False)
         labels = original_dataframe.iloc[:, labels_column]
         dataframe = pd.DataFrame({'True Labels': labels})
         

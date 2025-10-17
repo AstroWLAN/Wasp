@@ -2,7 +2,7 @@ from scapy.all import *
 import os
 
 # Split a single .pcap file into training and execution .pcap files
-def splitter():
+def moses():
     try:
         # User inputs
         pcap = input("\033[37mFile [ \033[90m.pcap \033[37m] : \033[0m")
@@ -38,7 +38,7 @@ def splitter():
         wrpcap(training_file, training_packets)
         wrpcap(execution_file, execution_packets)
 
-        print("\033[92mDone\033[0m")
+        print("\033[1;92mDone\033[0m")
         print(f"\033[90mOutput .pcap files saved to {input_dir}\033[0m\n")
 
     # Exception handling : log the error in the console
@@ -47,5 +47,5 @@ def splitter():
 
 # MAIN
 if __name__ == "__main__":
-    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mKNAD .pcap splitter\n\033[0m")
-    splitter()
+    print("\n\033[1;37mResearch Kit 🔎\033[0m\n\033[90mKNAD .pcap files splitter\n\033[0m")
+    moses()
