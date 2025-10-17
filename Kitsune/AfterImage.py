@@ -2,7 +2,7 @@ import math
 import numpy as np
 
 # Global parameter to control whether to use square root in calculations
-USE_SQRT = True
+USE_SQRT = False
 
 class incStat:
     def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False, use_sqrt=True):  # timestamp is creation time
