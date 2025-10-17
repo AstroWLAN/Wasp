@@ -1,3 +1,4 @@
+# IMPORTS
 import os
 import csv
 import math
@@ -5,103 +6,106 @@ import numpy as np
 import matplotlib.pyplot as plot
 from pathlib import Path
 
-# Generates a sampling mask -> it is a BOOLEAN vector where [True] means that the i-th packet has been sampled
-# Using a sampling mask is faster than using a for-loop since it leverages Numpy's vectorized operations
+# Generate a sampling mask 
+# It is a BOOLEAN vector where [True] means that the i-th packet has been sampled [ use KitNET prediction ]
+# Faster approach rather then using a for-loop because it leverages Numpy's vectorized operations
 def probabilistic_sampling (rate, N):
-    # Generates a vector of random numbers between 0 and 1 [ length = N ]
+    # Generate a vector of random numbers between 0 and 1 [ length = N ]
     sampling_probabilities = np.random.uniform(0, 1, N)
-    # Generates the sampling mask
-    # IDEA : consider a sampling rate of 0.3 -> this means that a packet has a 30% chance of being sampled
-    # What is the likelihood that a number is in the interval [0, 0.3] knowing that the numbers are uniformly distributed
-    # in the interval [0, 1]? -> 30%
+    # Generate the sampling mask
+    # IDEA : suppose a sampling rate of 0.3 out of 1 -> this means that a packet has a 30% chance of being sampled
+    # What is the likelihood that a number appears in the interval [0, 0.3] knowing that the numbers are uniformly distributed in the interval [0, 1]? -> 30%
     sampling_mask = sampling_probabilities < rate
     return sampling_mask
 
-# Conducts probabilistic sampling on packets and computes the metrics
+# Conduct probabilistic sampling on packets and compute a bunch of metrics
 def naive_sampling (predictions, rate, true_labels):
-    # Stores pre-processed predictions [ KitNET's predictions ]
+    # Store the pre-processed predictions [ KitNET's predictions ]
     sampled_predictions = predictions.copy()
-    # Number of predictions -> number of packets
+    # The number of predictions is equal to the number of packets in the original .pcap file
     N = len(predictions)
-    # Produces the sampling mask
+    # Generate the sampling mask
     sampling_mask = probabilistic_sampling(rate, N)
-    # Sets the predictions to 0 for all non-sampled packets
+    # Set the prediction to 0 for all the 'non-sampled' packets
     sampled_predictions[sampling_mask == False] = 0
     
-    # METRICS
-    # TP [ true positives ] : sums the instances where both sampled_predictions and true_labels are equal to 1
+    # CONFUSION MATRIX : classification scoreboard
+    # TP [ True Positives ] are the malicious packets predicted as malicious
+    # Summing the instances where both sampled_predictions and true_labels are equal to the specified value
     TP = np.sum((sampled_predictions == 1) & (true_labels == 1))
-    # FP [ false positives ] : sums the instances where sampled_predictions is equal to 1 and true_labels is equal to 0
+    # FP [ False Positives ] are the benign packets predicted as malicious
     FP = np.sum((sampled_predictions == 1) & (true_labels == 0))
-    # FN [ false negatives ] : sums the instances where sampled_predictions is equal to 0 and true_labels is equal to 1
+    # FN [ False Negatives ] are the malicious packets predicted as benign
     FN = np.sum((sampled_predictions == 0) & (true_labels == 1))
-    # TN [ true negatives ] : sums the instances where both sampled_predictions and true_labels are equal to 0
+    # TN [ True Negatives ] are the benign packets predicted as benign
     TN = np.sum((sampled_predictions == 0) & (true_labels == 0))
-    # Computes the precision [ amount of positive predictions that are true positive ] 
+
+    # PRECISION 
+    # How often the algorithm is right when it claims a packet is malicious 
+    # A high precision value means few false alarms
     precision = TP / (TP + FP) if (TP + FP) > 0 else 0
-    # Computes the recall [ amount of true positives predicted correctly predicted by the model ]
+    # RECALL
+    # How many of the actual malicious packets the algorithm catches
+    # High recall means fewer misses
     recall = TP / (TP + FN) if (TP + FN) > 0 else 0
-    # Computes the F1 score [ harmonic mean of precision and recall ] 
+    # F1 SCORE
+    # The harmonic mean of precision and recall
+    # A single measure that punishes extreme imbalance -> high precision and low recall or vice versa
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-    # Computes the accuracy [ overall correctness of a model ]
+    # ACCURACY
+    # Overall fraction of correctly classified packets both malicious and benign
     accuracy = (TP + TN) / (TP + TN + FP + FN) if N > 0 else 0
-    # Returns the metrics 
+    # Return the computed metrics 
     return accuracy, precision, recall, f1, TP, FP, FN, TN
 
-# Conducts sampling making assumptions looking at the identified malicious flows
+# Conduct the sampling procedure making assumptions by looking at the registered malicious flows
 def wasp_detection (predictions, flowIDs, rate, true_labels):
-    # Set of observed malicious flows
+    # Recorded malicious flows
     wasp_nest = set()
-    # Stores pre-processed predictions [ KitNET's predictions ]
+    # Store the pre-processed predictions [ KitNET's predictions ]
     wasp_predictions = predictions.copy()
-    # Number of predictions -> number of packets
+    # The number of predictions is equal to the number of packets in the original .pcap file
     N = len(predictions)
-    # Produces the sampling mask
+    # Generate the sampling mask
     sampling_mask = probabilistic_sampling(rate, N)
-    # Packets labeled as malicious with the Wasp Detection architecture [ counter ]
+    # [ Counter ] Packets labeled as malicious with the Wasp Detection sampling procedure 
     detected_wasps = 0
     
-    # Scans the sampled packets to populate the wasp_nest 
-    # The wasp_nest is filled with information [ flowIDs ] from the malicious packets that have been sampled 
+    # Scan the sampled packets to populate the wasp_nest 
+    # The wasp_nest is filled with information [ flowIDs ] from sampled malicious packets
     for i in range(N):
         if sampling_mask[i] == True and predictions[i] == 1:
             wasp_nest.add(flowIDs[i])
     
-    # Processes each prediction using the sampling mask and wasp_nest logic
     for i in range(N):
-        # Processes non-sampled packets using wasp_nest information
+        # Process non-sampled packets looking at the wasp_nest
         if sampling_mask[i] == False:
-            # If the packet's flow is in wasp_nest, label it as malicious
+            # IF the packet's flow belongs to the wasp_nest label the the packet is labeled as malicious too
             if flowIDs[i] in wasp_nest:
                 detected_wasps += 1
                 wasp_predictions[i] = 1
             else:
                 wasp_predictions[i] = 0
         else:
-            # For sampled packets keep the original predictions made by KitNET unchanged
+            # For sampled packets keep KitNET's predictions unchanged
             wasp_predictions[i] = predictions[i]
     
     # METRICS
-    # Calculates the metrics 
+    # Compute and return the metrics 
     TP = np.sum((wasp_predictions == 1) & (true_labels == 1))
     FP = np.sum((wasp_predictions == 1) & (true_labels == 0))
     FN = np.sum((wasp_predictions == 0) & (true_labels == 1))
     TN = np.sum((wasp_predictions == 0) & (true_labels == 0))
-    # Computes the precision 
     precision = TP / (TP + FP) if (TP + FP) > 0 else 0
-    # Computes the recall 
     recall = TP / (TP + FN) if (TP + FN) > 0 else 0
-    # Computes the F1 score 
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-    # Computes the accuracy
     accuracy = (TP + TN) / (TP + TN + FP + FN) if N > 0 else 0
-    # Returns the metrics 
     return accuracy, precision, recall, f1, detected_wasps, TP, FP, FN, TN
 
-# Computes metrics to evaluate the performance of the architectures
-# Due to the randomic nature of the sampling each benchmark is run multiple times and then averaged to obtain a more uniform result
-def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300):
-    # Results of the benchmarks
+# BENCHMARKS
+# Due to the randomic nature of the sampling process each benchmark is run multiple times and then the results are averaged to obtain a more accurate result
+def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300, destination_folder = None, training_packets = 55000):
+    # Benchmarks results
     naive_recall_results = []
     naive_precision_results = []
     naive_f1_score_results = []
@@ -119,28 +123,39 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
     wasps_fn_results = []
     wasps_tn_results = []
     
-    # Default rates if none are provided
+    # Default sampling rates 
     if rates is None:
         rates = [0.0000025, 0.000005, 0.00001, 0.000025, 0.00005, 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1]
 
-    # Asks the user for the attack name that will be used to name the .csv file for the metrics
-    attack = input("\033[97mAttack : \033[0m")
-    # Generates the .csv filename and saves it to the desktop
-    desktop = str(Path.home() / "Desktop")
-    csv_path = os.path.join(desktop, f"{attack}_metrics.csv")
-    # Prepares data for CSV
+    # Attack
+    attack = input("\033[97mAttack : \033[0m").lower()
+    # Generate the output .csv filename and save it to the specified folder
+    if destination_folder is None:
+        destination_folder = str(Path.home() / "Desktop")
+    os.makedirs(destination_folder, exist_ok=True)
+    # Create plots folder within destination folder
+    plots_folder = os.path.join(destination_folder, 'plots')
+    os.makedirs(plots_folder, exist_ok=True)
+    # Create metrics folder within destination folder
+    metrics_folder = os.path.join(destination_folder, 'metrics')
+    os.makedirs(metrics_folder, exist_ok=True)
+    csv_path = os.path.join(metrics_folder, f"{attack}_metrics.csv")
     csv_data = []
 
-    print("\n\033[1;97mArchitecture Benchmarks 🏛️\033[0m\n")
+    print("\n\033[1;97mArchitecture Benchmarks 🏛️\033[0m")
+    print("\033[90mStarting the benchmarking procedure...\033[0m")
     for rate in rates:
-        # Sampling parameters and indices
+        # PARAMETERS
+        # Number of predictions -> number of packets in the .pcap file
         N = len(predictions)
+        # Number of sampled packets
         M = math.floor(N * rate)
-        
-        print(f"\033[97m[\033[90mR\033[97m] Sampling Rate {rate:.8f}\033[0m")
-        print(f"\033[97m[\033[90m1/R\033[97m] Sampling Period {1/rate:.8f}\033[0m")
-        print("\033[90m" + "─" * 37 + "\033[0m")
-        print(f"\033[97m[\033[90mP\033[97m]\033[90m KitNET : {M}\n\033[97m[\033[90m1-P\033[97m]\033[90m Wasp Detection : {N - M}\033[0m")
+
+        print(f"\033[97m\nSampling Rate [\033[90m R \033[37m] is \033[1m{rate / (10 ** int(math.log10(rate))):.2f} × 10^{int(math.log10(rate))}\033[0m\033[90m or {rate:.8f}\033[0m")
+        print(f"\033[97mSampling Period [\033[90m 1/R \033[37m] is \033[1m{(1/rate) / (10 ** int(math.log10(1/rate))):.2f} × 10^{int(math.log10(1/rate))}\033[0m\033[90m or {1/rate:.8f}\033[0m")
+        print("\033[90m" + "─" * 57 + "\033[0m")
+        print(f"\033[97mKitNET [\033[90m P \033[37m] is processing \033[1m{M}\033[0m\033[90m packets\033[0m")
+        print(f"\033[97mWasp Detection [\033[90m 1-P \033[37m] is predicting \033[1m{N - M}\033[0m\033[90m packets\033[0m")
         # Averaging accumulators
         total_naive_recall = 0
         total_naive_precision = 0
@@ -161,10 +176,10 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         total_wasps_detected = 0
         
         for _ in range(iterations):
-            # Computes the metrics for the architectures
+            # Compute the metrics for the architectures
             sampling_accuracy, sampling_precision, sampling_recall, sampling_f1, sampling_tp, sampling_fp, sampling_fn, sampling_tn = naive_sampling(predictions, rate, true_labels)
             wasps_accuracy, wasps_precision, wasps_recall, wasps_f1, wasps_detected, wasps_tp, wasps_fp, wasps_fn, wasps_tn = wasp_detection(predictions, flowIDs, rate,true_labels)
-            # Accumulates the results
+            # Accumulate the results
             total_naive_recall += sampling_recall
             total_naive_precision += sampling_precision
             total_naive_f1 += sampling_f1
@@ -183,7 +198,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
             total_wasps_tn += wasps_tn
             total_wasps_detected += wasps_detected
         
-        # Calculates the average values and stores them in the result lists 
+        # Calculate the average values and stores them in the result lists 
         avg_naive_recall = total_naive_recall / iterations
         avg_naive_precision = total_naive_precision / iterations
         avg_naive_f1 = total_naive_f1 / iterations
@@ -201,8 +216,8 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         avg_wasps_fn = total_wasps_fn / iterations
         avg_wasps_tn = total_wasps_tn / iterations
         avg_wasps_detected = total_wasps_detected / iterations
-        print(f"\033[97m[\033[90m(1-P)*Q\033[97m]\033[90m Malicious Wasps : {math.floor(avg_wasps_detected)}\n\033[97m[\033[90m(1-P)*(1-Q)\033[97m]\033[90m Benign Wasps : {N - M - math.floor(avg_wasps_detected)}\033[0m")
-
+        print(f"\033[97mMalicious Wasps [\033[90m (1-P)*Q \033[37m] detected : \033[1m{math.floor(avg_wasps_detected)}\033[0m\033[90m\033[0m")
+        print(f"\033[97mBenign Wasps [\033[90m (1-P)*(1-Q) \033[37m] detected : \033[1m{N - M - math.floor(avg_wasps_detected)}\033[0m\033[90m\033[0m")
         naive_recall_results.append(avg_naive_recall)
         naive_precision_results.append(avg_naive_precision)
         naive_f1_score_results.append(avg_naive_f1)
@@ -220,7 +235,7 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
         wasps_fn_results.append(avg_wasps_fn)
         wasps_tn_results.append(avg_wasps_tn)
         
-        # Stores data for the .csv
+        # Store the data for the .csv
         csv_data.append({
             'rate': rate,
             'naive_recall': avg_naive_recall,
@@ -240,22 +255,35 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
             'wasps_fn': avg_wasps_fn,
             'wasps_tn': avg_wasps_tn
         })
-        print("\033[90m" + "─" * 37 + "\033[0m")
-        # Visualizes the metrics for the naive sampling approach
-        print(f"\033[97m• Naive Sampling\033[0m")
-        print(f"\033[97m[\033[90mRecall\033[97m] :\033[0m {avg_naive_recall:.8f}\n\033[97m[\033[90mPrecision\033[97m] :\033[0m {avg_naive_precision:.8f}\n\033[97m[\033[90mF1 Score\033[97m] :\033[0m {avg_naive_f1:.8f}\n\033[97m[\033[90mAccuracy\033[97m] :\033[0m {avg_naive_accuracy:.8f}")
-        print(f"\033[97m[\033[90mTP\033[97m] :\033[0m {avg_naive_tp:.8f}\n\033[97m[\033[90mFP\033[97m] :\033[0m {avg_naive_fp:.8f}\n\033[97m[\033[90mFN\033[97m] :\033[0m {avg_naive_fn:.8f}\n\033[97m[\033[90mTN\033[97m] :\033[0m {avg_naive_tn:.8f}")
-        # Visualizes the metrics for the wasp detection architecture
-        print(f"\033[97m• Wasp Detection\033[0m")
-        print(f"\033[97m[\033[90mRecall\033[97m] :\033[0m {avg_wasps_recall:.8f}\n\033[97m[\033[90mPrecision\033[97m] :\033[0m {avg_wasps_precision:.8f}\n\033[97m[\033[90mF1 Score\033[97m] :\033[0m {avg_wasps_f1:.8f}\n\033[97m[\033[90mAccuracy\033[97m] :\033[0m {avg_wasps_accuracy:.8f}")
-        print(f"\033[97m[\033[90mTP\033[97m] :\033[0m {avg_wasps_tp:.8f}\n\033[97m[\033[90mFP\033[97m] :\033[0m {avg_wasps_fp:.8f}\n\033[97m[\033[90mFN\033[97m] :\033[0m {avg_wasps_fn:.8f}\n\033[97m[\033[90mTN\033[97m] :\033[0m {avg_wasps_tn:.8f}")
-        print("\033[96mMetrics Collected\033[0m\n")
+        print("\033[90m" + "─" * 57 + "\033[0m")
+        print("\033[1;96mMetrics\033[0m\n")
+        # Visualize the metrics for the naive sampling approach
+        print(f"\033[97mNaive Sampling\033[0m")
+        print(f"\033[97mRecall [\033[90m value \033[37m] is \033[1m{avg_naive_recall:.8f}\033[0m")
+        print(f"\033[97mPrecision [\033[90m value \033[37m] is \033[1m{avg_naive_precision:.8f}\033[0m")
+        print(f"\033[97mF1 Score [\033[90m value \033[37m] is \033[1m{avg_naive_f1:.8f}\033[0m")
+        print(f"\033[97mAccuracy [\033[90m value \033[37m] is \033[1m{avg_naive_accuracy:.8f}\033[0m")
+        print(f"\033[97mTP are \033[1m{avg_naive_tp/1000:.2f}K\033[0m")
+        print(f"\033[97mFP are \033[1m{avg_naive_fp/1000:.2f}K\033[0m")
+        print(f"\033[97mFN are \033[1m{avg_naive_fn/1000:.2f}K\033[0m")
+        print(f"\033[97mTN are \033[1m{avg_naive_tn/1000:.2f}K\033[0m")
+        # Visualize the metrics for the wasp_detection architecture
+        print(f"\033[97m\nWasp Detection\033[0m")
+        print(f"\033[97mRecall [\033[90m value \033[37m] is \033[1m{avg_wasps_recall:.8f}\033[0m")
+        print(f"\033[97mPrecision [\033[90m value \033[37m] is \033[1m{avg_wasps_precision:.8f}\033[0m")
+        print(f"\033[97mF1 Score [\033[90m value \033[37m] is \033[1m{avg_wasps_f1:.8f}\033[0m")
+        print(f"\033[97mAccuracy [\033[90m value \033[37m] is \033[1m{avg_wasps_accuracy:.8f}\033[0m")
+        print(f"\033[97mTP are \033[1m{avg_wasps_tp/1000:.2f}K\033[0m")
+        print(f"\033[97mFP are \033[1m{avg_wasps_fp/1000:.2f}K\033[0m")
+        print(f"\033[97mFN are \033[1m{avg_wasps_fn/1000:.2f}K\033[0m")
+        print(f"\033[97mTN are \033[1m{avg_wasps_tn/1000:.2f}K\033[0m")
     
-    # Saves the metrics to the .csv file
+    # Save the metrics to the .csv file
     with open(csv_path, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow([f"Attack: {attack}"])
-        csv_writer.writerow([])  # Empty row
+        csv_writer.writerow([f"{attack}", f"Training packets: {training_packets}", f"Packets processed: {len(predictions)}"])
+        # Insert an empty row
+        csv_writer.writerow([])  
         csv_writer.writerow([
             "Sampling Rate", 
             "NS_Recall", "NS_Precision", "NS_F1", "NS_Accuracy",
@@ -263,8 +291,8 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
             "WD_Recall", "WD_Precision", "WD_F1", "WD_Accuracy",
             "WD_TP", "WD_FP", "WD_FN", "WD_TN"
         ])
-        for data in csv_data:
-            # Write data for each rate
+        for data in csv_data: 
+            # Write the data for each rate
             csv_writer.writerow([
                 data['rate'],
                 f"{data['naive_recall']:.8f}", f"{data['naive_precision']:.8f}", f"{data['naive_f1']:.8f}", f"{data['naive_accuracy']:.8f}",
@@ -272,117 +300,120 @@ def benchmark (predictions, flowIDs, true_labels, rates = None, iterations = 300
                 f"{data['wasps_recall']:.8f}", f"{data['wasps_precision']:.8f}", f"{data['wasps_f1']:.8f}", f"{data['wasps_accuracy']:.8f}",
                 f"{data['wasps_tp']:.8f}", f"{data['wasps_fp']:.8f}", f"{data['wasps_fn']:.8f}", f"{data['wasps_tn']:.8f}"
             ])
-    print(f"\033[90mSaving the collected metrics to the desktop\033[0m")
-    print("\033[92mDone\033[0m\n")
+    print(f"\033[90mSaving the collected metrics to {destination_folder}...\033[0m")
+    print("\033[1;92mDone\033[0m\n")
     
-    # Calculates the inverse of each rate
+    # Calculate the inverse of each rate
     inverse_rates = [1/rate for rate in rates]
     
-    # PLOTS [ using logarithmic scale for the x-axis ] 
-    # Recall plot
+    # PLOTS -> logarithmic scale for the x-axis
+    # RECALL plot 
+    # Measure the fraction of all malicious packets in the .pcap that have been successfully detected
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_recall_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_recall_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('Recall', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_recall_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_recall_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('Recall', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.ylim(-0.05, 1.05)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_recall.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_recall.pdf'))
     
-    # Precision plot
+    # PRECISION plot
+    # Precision measures the fraction of detected malicious packets that are actually malicious
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_precision_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_precision_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('Precision', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_precision_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_precision_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('Precision', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.ylim(-0.05, 1.05)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_precision.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_precision.pdf'))
     
-    # F1 score plot
+    # F1 SCORE plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_f1_score_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_f1_score_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('F1 Score', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_f1_score_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_f1_score_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('F1 Score', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.ylim(-0.05, 1.05)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_F1.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_F1.pdf'))
     
-    # Accuracy plot
+    # ACCURACY plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_accuracy_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_accuracy_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('Accuracy', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_accuracy_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_accuracy_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('Accuracy', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.ylim(-0.05, 1.05)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_accuracy.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_accuracy.pdf'))
     
-    # TP plot
+    # TP [ True Positives ] plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_tp_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_tp_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('True Positives', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_tp_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_tp_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('True Positives', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_TP.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_TP.pdf'))
     
-    # FP plot
+    # FP [ False Positives ] plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_fp_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_fp_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('False Positives', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_fp_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_fp_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('False Positives', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_FP.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_FP.pdf'))
     
-    # FN plot
+    # FN [ False Negatives ] plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_fn_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_fn_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('False Negatives', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_fn_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_fn_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('False Negatives', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_FN.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_FN.pdf'))
     
-    # TN plot
+    # TN [ True Negatives ] plot
     plot.figure(figsize=(10, 6))
-    plot.rcParams.update({'font.size': 15})
-    plot.plot(inverse_rates, naive_tn_results, marker='o', linestyle='-', linewidth=2, color='#0B84FF', label='Naive Sampling')
-    plot.plot(inverse_rates, wasps_tn_results, marker='^', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
-    plot.xlabel('1/R', fontweight='semibold', labelpad=10)
-    plot.ylabel('True Negatives', fontweight='semibold', labelpad=10)
+    plot.rcParams.update({'font.size': 22})
+    plot.plot(inverse_rates, naive_tn_results, marker='o', linestyle=':', linewidth=2, color='#0B84FF', label='Naive Sampling')
+    plot.plot(inverse_rates, wasps_tn_results, marker='s', linestyle='-', linewidth=2, color='#FF375F', label='Wasp Detection')
+    plot.xlabel('1/R', fontweight='semibold', labelpad=10, fontsize=24)
+    plot.ylabel('True Negatives', fontweight='semibold', labelpad=10, fontsize=24)
     plot.xscale('log')  
     plot.grid(True, alpha=0.3, linestyle=':', color='gray')
-    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray')
+    plot.legend(framealpha=1, facecolor='white', edgecolor='lightgray', fontsize=14)
     plot.tight_layout()
-    plot.savefig(os.path.join(desktop, f'{attack}_TN.png'), dpi=384)
+    plot.savefig(os.path.join(plots_folder, f'{attack.lower()}_TN.pdf'))
+
