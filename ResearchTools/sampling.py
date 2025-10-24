@@ -71,24 +71,24 @@ def wasp_detection (predictions, flowIDs, rate, true_labels):
     # [ Counter ] Packets labeled as malicious with the Wasp Detection sampling procedure 
     detected_wasps = 0
     
-    # Scan the sampled packets to populate the wasp_nest 
-    # The wasp_nest is filled with information [ flowIDs ] from sampled malicious packets
+    # Process packets sequentially to maintain temporal consistency
+    # The wasp_nest is built incrementally as we encounter sampled malicious packets
     for i in range(N):
-        if sampling_mask[i] == True and predictions[i] == 1:
-            wasp_nest.add(flowIDs[i])
-    
-    for i in range(N):
-        # Process non-sampled packets looking at the wasp_nest
-        if sampling_mask[i] == False:
-            # IF the packet's flow belongs to the wasp_nest label the the packet is labeled as malicious too
+        # Process sampled packets first
+        if sampling_mask[i] == True:
+            # For sampled packets keep KitNET's predictions unchanged
+            wasp_predictions[i] = predictions[i]
+            # If the sampled packet is malicious, add its flowID to the wasp_nest
+            if predictions[i] == 1:
+                wasp_nest.add(flowIDs[i])
+        else:
+            # Process non-sampled packets looking at the wasp_nest (built so far)
+            # IF the packet's flow belongs to the wasp_nest label the packet as malicious too
             if flowIDs[i] in wasp_nest:
                 detected_wasps += 1
                 wasp_predictions[i] = 1
             else:
                 wasp_predictions[i] = 0
-        else:
-            # For sampled packets keep KitNET's predictions unchanged
-            wasp_predictions[i] = predictions[i]
     
     # METRICS
     # Compute and return the metrics 
